@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>BroBrawl Test Client</title>
+</head>
+<body>
+    <h2>BroBrawl.io - Test Client</h2>
+    <p>Status: <span id="status">Disconnected</span></p>
+    <p>Player ID: <span id="playerId">-</span></p>
+
+    <script>
+        const statusEl = document.getElementById("status");
+        const playerIdEl = document.getElementById("playerId");
+
+        const socket = new WebSocket("ws://localhost:8080");
+
+        socket.onopen = () => {
+            statusEl.textContent = "Connected";
+            statusEl.style.color = "green";
+        };
+
+        socket.onmessage = (event) => {
+            const msg = JSON.parse(event.data);
+            console.log("Server:", msg);
+
+            if (msg.type === "CONNECTED") {
+                playerIdEl.textContent = msg.playerId;
+            }
+        };
+
+        socket.onclose = () => {
+            statusEl.textContent = "Disconnected";
+            statusEl.style.color = "red";
+        };
+
+        socket.onerror = (err) => {
+            console.error("WebSocket error:", err);
+        };
+    </script>
+</body>
+</html>
