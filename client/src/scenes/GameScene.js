@@ -21,13 +21,11 @@ export default class GameScene extends Phaser.Scene {
     this.playerMap[this.connection.playerId] = this.localPlayer;
 
     this.cursors = this.input.keyboard.createCursorKeys();
-    this.keys = this.input.keyboard.addKeys('W,A,S,D,J,K,SHIFT,R');
+    this.keys = this.input.keyboard.addKeys('W,A,S,D,J,K,SHIFT');
 
-    this.prevDir = 'none';
     this.prevShielding = false;
 
     this.winnerId = null;
-    this.winnerOverlay = null;
 
     this.stockGfx = this.add.graphics();
     this.stockGfx.setDepth(50);
@@ -41,15 +39,25 @@ export default class GameScene extends Phaser.Scene {
     );
 
     this.events.once('shutdown', this.cleanup, this);
+
+    this.lastTapKey = null;
+    this.lastTapTime = 0;
+    this.dashWindow = 300;
   }
 
   createPlatforms() {
     const gfx = this.add.graphics();
     gfx.fillStyle(0x553c8b);
-    gfx.fillRect(0, 430, 800, 40);
+    gfx.fillRect(150, 474, 500, 40);
     gfx.fillRect(250 - 90, 340 - 12, 180, 24);
     gfx.fillRect(550 - 90, 280 - 12, 180, 24);
     gfx.fillRect(400 - 60, 200 - 12, 120, 24);
+
+    gfx.lineStyle(2, 0x8866cc, 0.6);
+    gfx.strokeRect(150, 474, 500, 40);
+    gfx.strokeRect(250 - 90, 340 - 12, 180, 24);
+    gfx.strokeRect(550 - 90, 280 - 12, 180, 24);
+    gfx.strokeRect(400 - 60, 200 - 12, 120, 24);
   }
 
   handleState(msg) {
@@ -101,10 +109,9 @@ export default class GameScene extends Phaser.Scene {
 
     this.cameras.main.shake(300, 0.02);
 
-    this.winnerOverlay = this.add.rectangle(width / 2, height / 2, width, height, 0x000000, 0.7);
-    this.winnerOverlay.setDepth(100);
+    this.add.rectangle(width / 2, height / 2, width, height, 0x000000, 0.7).setDepth(100);
 
-    this.winnerText = this.add.text(width / 2, height / 2 - 30, isLocal ? 'YOU WIN!' : 'YOU LOSE!', {
+    this.add.text(width / 2, height / 2 - 30, isLocal ? 'YOU WIN!' : 'YOU LOSE!', {
       fontSize: '48px',
       color: isLocal ? '#4488ff' : '#ff4444',
       fontFamily: 'monospace',
@@ -113,11 +120,17 @@ export default class GameScene extends Phaser.Scene {
       strokeThickness: 4,
     }).setOrigin(0.5).setDepth(101);
 
-    this.menuPrompt = this.add.text(width / 2, height / 2 + 30, 'Press R to return to menu', {
+    this.add.text(width / 2, height / 2 + 30, 'Press R to return to menu', {
       fontSize: '16px',
       color: '#aaaaaa',
       fontFamily: 'monospace',
     }).setOrigin(0.5).setDepth(101);
+
+    this.input.keyboard.once('keydown-R', () => {
+      this.cleanup();
+      this.connection.disconnect();
+      this.scene.start('MenuScene');
+    });
   }
 
   handlePlayerLeft(msg) {
@@ -135,14 +148,7 @@ export default class GameScene extends Phaser.Scene {
   update(time, delta) {
     if (!this.localPlayer) return;
 
-    if (this.winnerId) {
-      if (Phaser.Input.Keyboard.JustDown(this.keys.R)) {
-        this.cleanup();
-        this.connection.disconnect();
-        this.scene.start('MenuScene');
-      }
-      return;
-    }
+    if (this.winnerId) return;
 
     const left = this.cursors.left.isDown || this.keys.A.isDown;
     const right = this.cursors.right.isDown || this.keys.D.isDown;
@@ -153,10 +159,23 @@ export default class GameScene extends Phaser.Scene {
     const specialAttack = Phaser.Input.Keyboard.JustDown(this.keys.K);
     const shield = this.keys.SHIFT.isDown;
 
-    if (dir !== this.prevDir) {
-      this.connection.send('move', { dir });
-      this.prevDir = dir;
+    this.connection.send('move', { dir });
+
+    if (Phaser.Input.Keyboard.JustDown(this.keys.A) || Phaser.Input.Keyboard.JustDown(this.cursors.left)) {
+      if (this.lastTapKey === 'left' && time - this.lastTapTime < this.dashWindow) {
+        this.connection.send('dash', { dir: -1 });
+      }
+      this.lastTapKey = 'left';
+      this.lastTapTime = time;
     }
+    if (Phaser.Input.Keyboard.JustDown(this.keys.D) || Phaser.Input.Keyboard.JustDown(this.cursors.right)) {
+      if (this.lastTapKey === 'right' && time - this.lastTapTime < this.dashWindow) {
+        this.connection.send('dash', { dir: 1 });
+      }
+      this.lastTapKey = 'right';
+      this.lastTapTime = time;
+    }
+
     if (jump) {
       this.connection.send('jump');
     }
@@ -186,7 +205,6 @@ export default class GameScene extends Phaser.Scene {
     const entries = Object.entries(this.playerMap);
     if (entries.length === 0) return;
 
-    let idx = 0;
     for (const [id, player] of entries) {
       const isLocal = id === this.connection.playerId;
       const baseX = isLocal ? 60 : 740;
@@ -211,7 +229,6 @@ export default class GameScene extends Phaser.Scene {
           this.stockGfx.fillCircle(sx, y, 2);
         }
       }
-      idx++;
     }
   }
 
@@ -219,6 +236,5 @@ export default class GameScene extends Phaser.Scene {
     this.unsubs.forEach(fn => fn());
     Object.values(this.playerMap).forEach(p => p.cleanup?.());
     this.stockGfx?.destroy();
-    this.winnerOverlay?.destroy();
   }
 }

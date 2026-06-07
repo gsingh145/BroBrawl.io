@@ -150,9 +150,9 @@ export default class Player {
     if (this.shielding) {
       this.shieldGfx.clear();
       this.shieldGfx.fillStyle(0x88aaff, 0.2);
-      this.shieldGfx.fillEllipse(x + 16, y, 48, 60);
+      this.shieldGfx.fillEllipse(x, y, 48, 60);
       this.shieldGfx.lineStyle(2, 0x88aaff, 0.4);
-      this.shieldGfx.strokeEllipse(x + 16, y, 48, 60);
+      this.shieldGfx.strokeEllipse(x, y, 48, 60);
       this.shieldGfx.setVisible(true);
     } else {
       this.shieldGfx.setVisible(false);

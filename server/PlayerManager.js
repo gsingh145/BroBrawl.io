@@ -12,8 +12,11 @@ const DEFAULT_PLAYER_STATE = {
     attacking: false,
     specialAttacking: false,
     onGround: false,
+    canDoubleJump: false,
     attackTimer: 0,
     specialAttackTimer: 0,
+    dashing: false,
+    dashTimer: 0,
     attackCooldown: 0,
     specialAttackCooldown: 0,
 };
@@ -32,6 +35,9 @@ function copyState(player) {
         attacking: player.attacking,
         specialAttacking: player.specialAttacking,
         onGround: player.onGround,
+        canDoubleJump: player.canDoubleJump,
+        dashing: player.dashing,
+        dashTimer: player.dashTimer,
     };
 }
 
