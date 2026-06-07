@@ -29,6 +29,8 @@ export default class MenuScene extends Phaser.Scene {
 
     this.connection = new ConnectionManager();
 
+    this.playerCount = 0;
+
     this.connection.on('open', () => {
       this.statusText.setText('Connected! Waiting for players...');
     });
@@ -37,10 +39,24 @@ export default class MenuScene extends Phaser.Scene {
       this.statusText.setText('Disconnected. Refresh to retry.');
     });
 
-    this.connection.on('state', (msg) => {
-      const count = msg.players.length;
-      this.playerCountText.setText(`Players in game: ${count}`);
-      if (count >= 2) {
+    this.connection.on('PLAYER_LIST', (msg) => {
+      this.playerCount = msg.players.length + 1;
+      this.playerCountText.setText(`Players in game: ${this.playerCount}`);
+    });
+
+    this.connection.on('PLAYER_JOINED', () => {
+      this.playerCount++;
+      this.playerCountText.setText(`Players in game: ${this.playerCount}`);
+    });
+
+    this.connection.on('PLAYER_LEFT', () => {
+      this.playerCount--;
+      this.playerCountText.setText(`Players in game: ${this.playerCount}`);
+    });
+
+    const unsub = this.connection.on('GAME_STATE', (msg) => {
+      if (msg.players.length >= 2) {
+        unsub();
         this.scene.start('GameScene', { connection: this.connection });
       }
     });

@@ -6,64 +6,44 @@ export default class GameScene extends Phaser.Scene {
     super('GameScene');
   }
 
-  create() {
+  create(data) {
     this.cameras.main.setBackgroundColor('#1a1a2e');
 
-    this.connection = this.scene.settings.data.connection;
+    this.connection = data.connection;
 
-    this.createTextures();
     this.createPlatforms();
 
+    this.playerMap = {};
     this.localPlayer = new Player(this, 400, 300, {
       isRemote: false,
       color: 0x4488ff,
     });
-    this.physics.add.collider(this.localPlayer, this.platforms);
-
-    this.playerMap = {};
     this.playerMap[this.connection.playerId] = this.localPlayer;
 
     this.cursors = this.input.keyboard.createCursorKeys();
-    this.keys = this.input.keyboard.addKeys('W,A,S,D,J,SHIFT');
+    this.keys = this.input.keyboard.addKeys('W,A,S,D,J,K,SHIFT');
 
     this.prevDir = 'none';
     this.prevShielding = false;
 
     this.unsubs = [];
     this.unsubs.push(
-      this.connection.on('state', (msg) => this.handleState(msg))
+      this.connection.on('GAME_STATE', (msg) => this.handleState(msg))
     );
     this.unsubs.push(
-      this.connection.on('playerDisconnected', (msg) => this.handleDisconnect(msg))
+      this.connection.on('PLAYER_LEFT', (msg) => this.handlePlayerLeft(msg))
     );
 
     this.events.once('shutdown', this.cleanup, this);
   }
 
-  createTextures() {
-    if (!this.textures.exists('platform')) {
-      const gfx = this.make.graphics({ add: false });
-      gfx.fillStyle(0x553c8b);
-      gfx.fillRect(0, 0, 1, 1);
-      gfx.generateTexture('platform', 1, 1);
-      gfx.destroy();
-    }
-  }
-
   createPlatforms() {
-    this.platforms = this.physics.add.staticGroup();
-
-    const ground = this.platforms.create(400, 580, 'platform');
-    ground.setDisplaySize(800, 40).refreshBody();
-
-    const p1 = this.platforms.create(250, 430, 'platform');
-    p1.setDisplaySize(180, 24).refreshBody();
-
-    const p2 = this.platforms.create(550, 350, 'platform');
-    p2.setDisplaySize(180, 24).refreshBody();
-
-    const p3 = this.platforms.create(400, 220, 'platform');
-    p3.setDisplaySize(120, 24).refreshBody();
+    const gfx = this.add.graphics();
+    gfx.fillStyle(0x553c8b);
+    gfx.fillRect(0, 430, 800, 40);
+    gfx.fillRect(250 - 90, 340 - 12, 180, 24);
+    gfx.fillRect(550 - 90, 280 - 12, 180, 24);
+    gfx.fillRect(400 - 60, 200 - 12, 120, 24);
   }
 
   handleState(msg) {
@@ -93,7 +73,7 @@ export default class GameScene extends Phaser.Scene {
     }
   }
 
-  handleDisconnect(msg) {
+  handlePlayerLeft(msg) {
     this.removePlayer(msg.playerId);
   }
 
@@ -101,7 +81,6 @@ export default class GameScene extends Phaser.Scene {
     const player = this.playerMap[id];
     if (player) {
       player.cleanup();
-      player.destroy();
       delete this.playerMap[id];
     }
   }
@@ -115,27 +94,32 @@ export default class GameScene extends Phaser.Scene {
     const jump = Phaser.Input.Keyboard.JustDown(this.cursors.up) ||
                  Phaser.Input.Keyboard.JustDown(this.keys.W);
     const attack = Phaser.Input.Keyboard.JustDown(this.keys.J);
+    const specialAttack = Phaser.Input.Keyboard.JustDown(this.keys.K);
     const shield = this.keys.SHIFT.isDown;
 
     if (dir !== this.prevDir) {
       this.connection.send('move', { dir });
       this.prevDir = dir;
     }
-
     if (jump) {
       this.connection.send('jump');
     }
-
     if (attack) {
       this.connection.send('attack');
     }
-
+    if (specialAttack) {
+      this.connection.send('specialAttack');
+    }
     if (shield !== this.prevShielding) {
       this.connection.send(shield ? 'shieldStart' : 'shieldEnd');
       this.prevShielding = shield;
     }
 
-    this.localPlayer.handleLocalInput({ left, right, jump, attack, shield });
+    this.localPlayer.handleLocalInput({ attack, specialAttack, shield });
+
+    for (const player of Object.values(this.playerMap)) {
+      player.update(delta);
+    }
   }
 
   cleanup() {

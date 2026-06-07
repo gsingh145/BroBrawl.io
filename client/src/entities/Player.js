@@ -1,6 +1,6 @@
 import Phaser from 'phaser';
 
-export default class Player extends Phaser.Physics.Arcade.Sprite {
+export default class Player {
   constructor(scene, x, y, config = {}) {
     const { isRemote = false, color = 0x4488ff } = config;
 
@@ -13,30 +13,25 @@ export default class Player extends Phaser.Physics.Arcade.Sprite {
       gfx.destroy();
     }
 
-    super(scene, x, y, 'player');
-    scene.add.existing(this);
-
+    this.scene = scene;
     this.isRemote = isRemote;
     this.playerColor = color;
-    this.setTint(color);
 
-    if (!isRemote) {
-      scene.physics.add.existing(this);
-      this.speed = 220;
-      this.jumpVelocity = -480;
-      this.maxJumps = 2;
-      this.jumpsRemaining = 0;
-    } else {
-      this.body.enable = false;
-    }
+    this.sprite = scene.add.sprite(x, y, 'player');
+    this.sprite.setTint(color);
 
     this.facing = 'right';
     this.damage = 0;
     this.stocks = 3;
     this.shielding = false;
+
     this.attacking = false;
     this.attackTimer = 0;
     this.attackCooldown = 0;
+
+    this.specialAttacking = false;
+    this.specialAttackTimer = 0;
+    this.specialAttackCooldown = 0;
 
     this.damageText = scene.add.text(x, y - 40, '0%', {
       fontSize: '14px',
@@ -50,32 +45,33 @@ export default class Player extends Phaser.Physics.Arcade.Sprite {
     this.attackGfx.setVisible(false);
   }
 
-  handleLocalInput(input) {
-    const { left, right, jump, attack, shield } = input;
+  get x() { return this.sprite.x; }
+  get y() { return this.sprite.y; }
 
-    if (this.body.blocked.down) {
-      this.jumpsRemaining = this.maxJumps;
-    }
+  applyState(state) {
+    this.sprite.setPosition(state.x, state.y);
+    this.damage = state.damage || 0;
+    this.stocks = state.stocks ?? 3;
+    this.facing = state.facing === -1 ? 'left' : 'right';
+    this.shielding = state.shielding || false;
 
-    if (left) {
-      this.setVelocityX(-this.speed);
-      this.facing = 'left';
-    } else if (right) {
-      this.setVelocityX(this.speed);
-      this.facing = 'right';
-    } else {
-      this.setVelocityX(0);
-    }
-
-    if (jump && this.jumpsRemaining > 0) {
-      this.setVelocityY(this.jumpVelocity);
-      this.jumpsRemaining--;
-    }
-
-    if (attack && !this.attacking && this.attackCooldown <= 0) {
+    if (state.attacking && !this.attacking) {
       this.startAttack();
     }
+    if (state.specialAttacking && !this.specialAttacking) {
+      this.startSpecialAttack();
+    }
+  }
 
+  handleLocalInput(input) {
+    const { attack, specialAttack, shield } = input;
+
+    if (attack && !this.attacking && !this.specialAttacking && this.attackCooldown <= 0) {
+      this.startAttack();
+    }
+    if (specialAttack && !this.specialAttacking && !this.attacking && this.specialAttackCooldown <= 0) {
+      this.startSpecialAttack();
+    }
     this.shielding = shield;
   }
 
@@ -85,24 +81,13 @@ export default class Player extends Phaser.Physics.Arcade.Sprite {
     this.attackCooldown = 300;
   }
 
-  applyState(state) {
-    this.setPosition(state.x, state.y);
-    if (!this.isRemote) {
-      this.setVelocity(state.vx || 0, state.vy || 0);
-    }
-    this.damage = state.damage || 0;
-    this.stocks = state.stocks ?? 3;
-    this.facing = state.facing === -1 ? 'left' : 'right';
-    this.shielding = state.shielding || false;
-
-    if (state.attacking && !this.attacking) {
-      this.startAttack();
-    }
+  startSpecialAttack() {
+    this.specialAttacking = true;
+    this.specialAttackTimer = 300;
+    this.specialAttackCooldown = 600;
   }
 
-  preUpdate(time, delta) {
-    super.preUpdate(time, delta);
-
+  update(delta) {
     if (this.attackTimer > 0) {
       this.attackTimer -= delta;
       if (this.attackTimer <= 0) {
@@ -110,31 +95,48 @@ export default class Player extends Phaser.Physics.Arcade.Sprite {
         this.attackTimer = 0;
       }
     }
-
     if (this.attackCooldown > 0) {
       this.attackCooldown -= delta;
+    }
+    if (this.specialAttackTimer > 0) {
+      this.specialAttackTimer -= delta;
+      if (this.specialAttackTimer <= 0) {
+        this.specialAttacking = false;
+        this.specialAttackTimer = 0;
+      }
+    }
+    if (this.specialAttackCooldown > 0) {
+      this.specialAttackCooldown -= delta;
     }
 
     this.updateVisuals();
   }
 
   updateVisuals() {
-    this.setFlipX(this.facing === 'left');
+    const { x, y } = this.sprite;
+
+    this.sprite.setFlipX(this.facing === 'left');
 
     if (this.shielding) {
-      this.setTint(0x88aaff);
+      this.sprite.setTint(0x88aaff);
     } else {
-      this.setTint(this.playerColor);
+      this.sprite.setTint(this.playerColor);
     }
 
-    this.damageText.setPosition(this.x, this.y - 40);
+    this.damageText.setPosition(x, y - 40);
     this.damageText.setText(`${Math.floor(this.damage)}%`);
 
-    if (this.attacking) {
-      const hx = this.facing === 'right' ? this.x + 16 : this.x - 56;
+    if (this.specialAttacking) {
+      const hx = this.facing === 'right' ? x + 12 : x - 68;
+      this.attackGfx.clear();
+      this.attackGfx.fillStyle(0xff6600, 0.8);
+      this.attackGfx.fillRect(hx, y - 18, 56, 36);
+      this.attackGfx.setVisible(true);
+    } else if (this.attacking) {
+      const hx = this.facing === 'right' ? x + 16 : x - 56;
       this.attackGfx.clear();
       this.attackGfx.fillStyle(0xffff00, 0.7);
-      this.attackGfx.fillRect(hx, this.y - 14, 40, 28);
+      this.attackGfx.fillRect(hx, y - 14, 40, 28);
       this.attackGfx.setVisible(true);
     } else {
       this.attackGfx.setVisible(false);
@@ -142,6 +144,7 @@ export default class Player extends Phaser.Physics.Arcade.Sprite {
   }
 
   cleanup() {
+    this.sprite?.destroy();
     this.damageText?.destroy();
     this.attackGfx?.destroy();
   }
