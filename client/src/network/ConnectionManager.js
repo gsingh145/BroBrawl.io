@@ -1,6 +1,15 @@
 export default class ConnectionManager {
-  constructor(url = 'ws://localhost:8080') {
-    this.url = url;
+  constructor(url) {
+    if (url) {
+      this.url = url;
+    } else {
+      const isNodeServer = location.port === '8080' || !location.port || location.protocol === 'https:';
+      if (isNodeServer) {
+        this.url = `${location.protocol.replace('http', 'ws')}//${location.host}`;
+      } else {
+        this.url = 'ws://localhost:8080';
+      }
+    }
     this.ws = null;
     this.playerId = null;
     this.connected = false;
