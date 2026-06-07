@@ -21,10 +21,16 @@ export default class GameScene extends Phaser.Scene {
     this.playerMap[this.connection.playerId] = this.localPlayer;
 
     this.cursors = this.input.keyboard.createCursorKeys();
-    this.keys = this.input.keyboard.addKeys('W,A,S,D,J,K,SHIFT');
+    this.keys = this.input.keyboard.addKeys('W,A,S,D,J,K,SHIFT,R');
 
     this.prevDir = 'none';
     this.prevShielding = false;
+
+    this.winnerId = null;
+    this.winnerOverlay = null;
+
+    this.stockGfx = this.add.graphics();
+    this.stockGfx.setDepth(50);
 
     this.unsubs = [];
     this.unsubs.push(
@@ -71,6 +77,47 @@ export default class GameScene extends Phaser.Scene {
         player.applyState(state);
       }
     }
+
+    if (!this.winnerId) {
+      this.checkWinner(msg.players);
+    }
+  }
+
+  checkWinner(players) {
+    if (players.length < 2) return;
+
+    const zeroStocks = players.filter(p => p.stocks <= 0);
+    const hasStocks = players.filter(p => p.stocks > 0);
+
+    if (zeroStocks.length > 0 && hasStocks.length > 0) {
+      this.showWinner(hasStocks[0]);
+    }
+  }
+
+  showWinner(winner) {
+    this.winnerId = winner.id;
+    const { width, height } = this.scale;
+    const isLocal = winner.id === this.connection.playerId;
+
+    this.cameras.main.shake(300, 0.02);
+
+    this.winnerOverlay = this.add.rectangle(width / 2, height / 2, width, height, 0x000000, 0.7);
+    this.winnerOverlay.setDepth(100);
+
+    this.winnerText = this.add.text(width / 2, height / 2 - 30, isLocal ? 'YOU WIN!' : 'YOU LOSE!', {
+      fontSize: '48px',
+      color: isLocal ? '#4488ff' : '#ff4444',
+      fontFamily: 'monospace',
+      fontStyle: 'bold',
+      stroke: '#000000',
+      strokeThickness: 4,
+    }).setOrigin(0.5).setDepth(101);
+
+    this.menuPrompt = this.add.text(width / 2, height / 2 + 30, 'Press R to return to menu', {
+      fontSize: '16px',
+      color: '#aaaaaa',
+      fontFamily: 'monospace',
+    }).setOrigin(0.5).setDepth(101);
   }
 
   handlePlayerLeft(msg) {
@@ -87,6 +134,15 @@ export default class GameScene extends Phaser.Scene {
 
   update(time, delta) {
     if (!this.localPlayer) return;
+
+    if (this.winnerId) {
+      if (Phaser.Input.Keyboard.JustDown(this.keys.R)) {
+        this.cleanup();
+        this.connection.disconnect();
+        this.scene.start('MenuScene');
+      }
+      return;
+    }
 
     const left = this.cursors.left.isDown || this.keys.A.isDown;
     const right = this.cursors.right.isDown || this.keys.D.isDown;
@@ -120,10 +176,49 @@ export default class GameScene extends Phaser.Scene {
     for (const player of Object.values(this.playerMap)) {
       player.update(delta);
     }
+
+    this.drawStockHUD();
+  }
+
+  drawStockHUD() {
+    this.stockGfx.clear();
+
+    const entries = Object.entries(this.playerMap);
+    if (entries.length === 0) return;
+
+    let idx = 0;
+    for (const [id, player] of entries) {
+      const isLocal = id === this.connection.playerId;
+      const baseX = isLocal ? 60 : 740;
+      const y = 24;
+      const color = player.playerColor;
+
+      this.stockGfx.fillStyle(0xffffff);
+      this.stockGfx.fillRect(baseX - 10, y - 10, 60, 20);
+
+      this.stockGfx.fillStyle(0x1a1a2e);
+      this.stockGfx.fillRect(baseX - 9, y - 9, 58, 18);
+
+      this.stockGfx.fillStyle(color);
+      for (let i = 0; i < 3; i++) {
+        const sx = isLocal ? baseX + i * 16 : baseX - (2 - i) * 16;
+        if (i < player.stocks) {
+          this.stockGfx.fillCircle(sx, y, 5);
+        } else {
+          this.stockGfx.fillStyle(0x444444);
+          this.stockGfx.fillCircle(sx, y, 5);
+          this.stockGfx.fillStyle(0x1a1a2e);
+          this.stockGfx.fillCircle(sx, y, 2);
+        }
+      }
+      idx++;
+    }
   }
 
   cleanup() {
     this.unsubs.forEach(fn => fn());
     Object.values(this.playerMap).forEach(p => p.cleanup?.());
+    this.stockGfx?.destroy();
+    this.winnerOverlay?.destroy();
   }
 }

@@ -7,8 +7,13 @@ export default class Player {
     if (!scene.textures.exists('player')) {
       const gfx = scene.make.graphics({ add: false });
       gfx.fillStyle(0xffffff);
-      gfx.fillRect(0, 0, 32, 48);
-      gfx.fillTriangle(24, 16, 32, 22, 24, 28);
+      gfx.fillCircle(16, 10, 7);
+      gfx.fillRect(10, 18, 12, 14);
+      gfx.fillRect(5, 20, 5, 4);
+      gfx.fillRect(22, 20, 5, 4);
+      gfx.fillRect(12, 33, 4, 12);
+      gfx.fillRect(16, 33, 4, 12);
+      gfx.fillTriangle(24, 20, 32, 25, 24, 30);
       gfx.generateTexture('player', 32, 48);
       gfx.destroy();
     }
@@ -33,6 +38,8 @@ export default class Player {
     this.specialAttackTimer = 0;
     this.specialAttackCooldown = 0;
 
+    this.hitFlashTimer = 0;
+
     this.damageText = scene.add.text(x, y - 40, '0%', {
       fontSize: '14px',
       color: '#ffffff',
@@ -43,17 +50,26 @@ export default class Player {
 
     this.attackGfx = scene.add.graphics();
     this.attackGfx.setVisible(false);
+
+    this.shieldGfx = scene.add.graphics();
+    this.shieldGfx.setVisible(false);
   }
 
   get x() { return this.sprite.x; }
   get y() { return this.sprite.y; }
 
   applyState(state) {
+    const dmgIncrease = (state.damage || 0) - this.damage;
+
     this.sprite.setPosition(state.x, state.y);
     this.damage = state.damage || 0;
     this.stocks = state.stocks ?? 3;
     this.facing = state.facing === -1 ? 'left' : 'right';
     this.shielding = state.shielding || false;
+
+    if (dmgIncrease > 0) {
+      this.hitFlashTimer = 100;
+    }
 
     if (state.attacking && !this.attacking) {
       this.startAttack();
@@ -108,6 +124,9 @@ export default class Player {
     if (this.specialAttackCooldown > 0) {
       this.specialAttackCooldown -= delta;
     }
+    if (this.hitFlashTimer > 0) {
+      this.hitFlashTimer -= delta;
+    }
 
     this.updateVisuals();
   }
@@ -117,7 +136,9 @@ export default class Player {
 
     this.sprite.setFlipX(this.facing === 'left');
 
-    if (this.shielding) {
+    if (this.hitFlashTimer > 0) {
+      this.sprite.setTint(0xffffff);
+    } else if (this.shielding) {
       this.sprite.setTint(0x88aaff);
     } else {
       this.sprite.setTint(this.playerColor);
@@ -125,6 +146,17 @@ export default class Player {
 
     this.damageText.setPosition(x, y - 40);
     this.damageText.setText(`${Math.floor(this.damage)}%`);
+
+    if (this.shielding) {
+      this.shieldGfx.clear();
+      this.shieldGfx.fillStyle(0x88aaff, 0.2);
+      this.shieldGfx.fillEllipse(x + 16, y, 48, 60);
+      this.shieldGfx.lineStyle(2, 0x88aaff, 0.4);
+      this.shieldGfx.strokeEllipse(x + 16, y, 48, 60);
+      this.shieldGfx.setVisible(true);
+    } else {
+      this.shieldGfx.setVisible(false);
+    }
 
     if (this.specialAttacking) {
       const hx = this.facing === 'right' ? x + 12 : x - 68;
@@ -147,5 +179,6 @@ export default class Player {
     this.sprite?.destroy();
     this.damageText?.destroy();
     this.attackGfx?.destroy();
+    this.shieldGfx?.destroy();
   }
 }
