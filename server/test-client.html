@@ -7,10 +7,26 @@
     <h2>BroBrawl.io - Test Client</h2>
     <p>Status: <span id="status">Disconnected</span></p>
     <p>Player ID: <span id="playerId">-</span></p>
+    <p>Online: <span id="onlineCount">0</span></p>
+    <ul id="playerList"></ul>
 
     <script>
         const statusEl = document.getElementById("status");
         const playerIdEl = document.getElementById("playerId");
+        const onlineCountEl = document.getElementById("onlineCount");
+        const playerListEl = document.getElementById("playerList");
+
+        const players = new Map();
+
+        function renderPlayers() {
+            onlineCountEl.textContent = players.size;
+            playerListEl.innerHTML = "";
+            players.forEach((p) => {
+                const li = document.createElement("li");
+                li.textContent = `${p.id.slice(0, 8)}...  x:${p.x} y:${p.y} dmg:${p.damage} stocks:${p.stocks}`;
+                playerListEl.appendChild(li);
+            });
+        }
 
         const socket = new WebSocket("ws://localhost:8080");
 
@@ -25,6 +41,21 @@
 
             if (msg.type === "CONNECTED") {
                 playerIdEl.textContent = msg.playerId;
+            }
+
+            if (msg.type === "PLAYER_LIST") {
+                msg.players.forEach((p) => players.set(p.id, p));
+                renderPlayers();
+            }
+
+            if (msg.type === "PLAYER_JOINED") {
+                players.set(msg.player.id, msg.player);
+                renderPlayers();
+            }
+
+            if (msg.type === "PLAYER_LEFT") {
+                players.delete(msg.playerId);
+                renderPlayers();
             }
         };
 
