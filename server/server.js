@@ -1,3 +1,6 @@
+const http = require("http");
+const fs = require("fs");
+const path = require("path");
 const WebSocket = require("ws");
 const { PlayerManager } = require("./PlayerManager");
 
@@ -34,7 +37,28 @@ const PLATFORMS = [
   { left: 340, right: 460, surfaceY: 188 },
 ];
 
-const wss = new WebSocket.Server({ port: PORT });
+const server = http.createServer((req, res) => {
+    const filePath = req.url === "/" ? "/index.html" : req.url;
+    const fullPath = path.join(__dirname, "public", filePath);
+    if (!fullPath.startsWith(path.join(__dirname, "public"))) {
+        res.writeHead(403);
+        res.end();
+        return;
+    }
+    fs.readFile(fullPath, (err, data) => {
+        if (err) {
+            res.writeHead(404);
+            res.end("Not found");
+            return;
+        }
+        const ext = path.extname(fullPath);
+        const types = { ".html": "text/html", ".js": "text/javascript", ".css": "text/css", ".png": "image/png" };
+        res.writeHead(200, { "Content-Type": types[ext] || "text/plain" });
+        res.end(data);
+    });
+});
+
+const wss = new WebSocket.Server({ server });
 const pm = new PlayerManager();
 
 function send(ws, data) {
@@ -272,5 +296,9 @@ wss.on("connection", (ws) => {
     });
 });
 
+server.listen(PORT, () => {
+    console.log(`BroBrawl server running on http://0.0.0.0:${PORT} (${1000 / TICK_RATE}Hz)`);
+    console.log(`Connect from another device: http://<YOUR_IP>:${PORT}`);
+});
+
 setInterval(tick, TICK_RATE);
-console.log(`BroBrawl server running on port ${PORT} (${1000 / TICK_RATE}Hz)`);
