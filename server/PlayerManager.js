@@ -9,7 +9,31 @@ const DEFAULT_PLAYER_STATE = {
     stocks: 3,
     facing: 1,
     shielding: false,
+    attacking: false,
+    specialAttacking: false,
+    onGround: false,
+    attackTimer: 0,
+    specialAttackTimer: 0,
+    attackCooldown: 0,
+    specialAttackCooldown: 0,
 };
+
+function copyState(player) {
+    return {
+        id: player.id,
+        x: player.x,
+        y: player.y,
+        vx: player.vx,
+        vy: player.vy,
+        damage: player.damage,
+        stocks: player.stocks,
+        facing: player.facing,
+        shielding: player.shielding,
+        attacking: player.attacking,
+        specialAttacking: player.specialAttacking,
+        onGround: player.onGround,
+    };
+}
 
 class PlayerManager {
     constructor() {
@@ -56,6 +80,15 @@ class PlayerManager {
     getAllPlayers() {
         return Array.from(this.players.values());
     }
+
+    getAllPlayerStates() {
+        return Array.from(this.players.values()).map(copyState);
+    }
+
+    getPlayerState(id) {
+        const player = this.players.get(id);
+        return player ? copyState(player) : null;
+    }
 }
 
-module.exports = PlayerManager;
+module.exports = { PlayerManager, copyState };
