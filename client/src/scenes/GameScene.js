@@ -7,10 +7,9 @@ export default class GameScene extends Phaser.Scene {
   }
 
   create(data) {
-    this.cameras.main.setBackgroundColor('#1a1a2e');
-
     this.connection = data.connection;
 
+    this.createBackground();
     this.createPlatforms();
 
     this.playerMap = {};
@@ -46,19 +45,60 @@ export default class GameScene extends Phaser.Scene {
     this.dashWindow = 300;
   }
 
+  createBackground() {
+    this.cameras.main.setBackgroundColor('#0f0f23');
+
+    const gfx = this.add.graphics();
+    gfx.fillStyle(0x151530, 0.5);
+    for (let i = 0; i < 12; i++) {
+      const x = (i * 73 + 20) % 800;
+      const y = (i * 47 + 30) % 500;
+      gfx.fillCircle(x, y, 1.5);
+    }
+
+    const bg = this.add.graphics();
+    bg.fillStyle(0x0a0a1a, 0.6);
+    bg.fillRect(0, 0, 800, 100);
+    bg.fillRect(0, 500, 800, 100);
+  }
+
   createPlatforms() {
     const gfx = this.add.graphics();
-    gfx.fillStyle(0x553c8b);
-    gfx.fillRect(150, 474, 500, 40);
-    gfx.fillRect(160, 328, 180, 24);
-    gfx.fillRect(460, 268, 180, 24);
-    gfx.fillRect(340, 188, 120, 24);
+    gfx.setDepth(10);
 
-    gfx.lineStyle(2, 0x8866cc, 0.6);
-    gfx.strokeRect(150, 474, 500, 40);
-    gfx.strokeRect(160, 328, 180, 24);
-    gfx.strokeRect(460, 268, 180, 24);
-    gfx.strokeRect(340, 188, 120, 24);
+    const surf = this.add.graphics();
+    surf.setDepth(11);
+
+    this.platformRects = [
+      { x: 250, y: 390, w: 160, h: 16, color: 0x00d2ff },
+      { x: 550, y: 320, w: 160, h: 16, color: 0x00d2ff },
+      { x: 400, y: 250, w: 130, h: 16, color: 0xff6b6b },
+      { x: 250, y: 190, w: 110, h: 16, color: 0xffd93d },
+      { x: 550, y: 140, w: 90, h: 16, color: 0xffd93d },
+    ];
+
+    const groundTop = 474;
+    gfx.fillStyle(0x000000, 0.4);
+    gfx.fillRect(0, groundTop + 4, 800, 40);
+    gfx.fillStyle(0x2a1a4a);
+    gfx.fillRect(0, groundTop, 800, 40);
+    surf.fillStyle(0x8866ff, 0.8);
+    surf.fillRect(0, groundTop, 800, 4);
+    surf.fillStyle(0xaa88ff, 0.3);
+    surf.fillRect(0, groundTop + 4, 800, 2);
+
+    for (const p of this.platformRects) {
+      const left = p.x - p.w / 2;
+      const top = p.y - p.h / 2;
+      gfx.fillStyle(0x000000, 0.3);
+      gfx.fillRoundedRect(left + 3, top + 3, p.w, p.h, 4);
+      gfx.fillStyle(p.color, 0.15);
+      gfx.fillRoundedRect(left - 6, top - 6, p.w + 12, p.h + 12, 8);
+      gfx.fillStyle(p.color);
+      gfx.fillRoundedRect(left, top, p.w, p.h, 4);
+      surf.fillStyle(0xffffff, 0.25);
+      surf.fillRoundedRect(left + 3, top + 2, p.w - 6, p.h / 2 - 2, 3);
+    }
   }
 
   handleState(msg) {
@@ -207,7 +247,8 @@ export default class GameScene extends Phaser.Scene {
       this.prevShielding = shield;
     }
 
-    this.localPlayer.handleLocalInput({ attack, specialAttack, shield, attackDir });
+    const speed = dir === 'left' ? -4.5 : dir === 'right' ? 4.5 : 0;
+    this.localPlayer.handleLocalInput({ attack, specialAttack, shield, attackDir, vx: speed });
 
     for (const player of Object.values(this.playerMap)) {
       player.update(delta);

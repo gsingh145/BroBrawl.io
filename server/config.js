@@ -1,9 +1,9 @@
 module.exports = {
   TICK_RATE: 50,
-  GRAVITY: 0.6,
+  GRAVITY: 0.55,
   FRICTION: 0.85,
-  MOVE_SPEED: 4,
-  JUMP_VELOCITY: -10,
+  MOVE_SPEED: 4.5,
+  JUMP_VELOCITY: -11,
   PLAYER_W: 32,
   PLAYER_H: 48,
 
@@ -37,14 +37,16 @@ module.exports = {
   BLAST_ZONE_BOTTOM: 620,
 
   PLATFORMS: [
-    { left: 150, right: 650, surfaceY: 474 },
-    { left: 160, right: 340, surfaceY: 328 },
-    { left: 460, right: 640, surfaceY: 268 },
-    { left: 340, right: 460, surfaceY: 188 },
+    { left: 0, right: 800, surfaceY: 474 },
+    { left: 170, right: 330, surfaceY: 390 },
+    { left: 470, right: 630, surfaceY: 320 },
+    { left: 335, right: 465, surfaceY: 250 },
+    { left: 195, right: 305, surfaceY: 190 },
+    { left: 505, right: 595, surfaceY: 140 },
   ],
 
   SPAWN_POSITIONS: [
-    { x: 250, y: 100 },
-    { x: 550, y: 100 },
+    { x: 200, y: 200 },
+    { x: 600, y: 200 },
   ],
 };

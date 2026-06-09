@@ -28,7 +28,6 @@ export default class MenuScene extends Phaser.Scene {
     }).setOrigin(0.5);
 
     this.connection = new ConnectionManager();
-    this.searching = false;
     this.transitioned = false;
     this.playerCount = 0;
 
@@ -44,21 +43,26 @@ export default class MenuScene extends Phaser.Scene {
     const startGame = () => {
       if (this.transitioned) return;
       this.transitioned = true;
+      this.statusText.setText('Starting game...');
       this.scene.start('GameScene', { connection: this.connection });
     };
 
+    const checkStart = () => {
+      if (this.playerCount >= 2) startGame();
+    };
+
     btnBg.on('pointerover', () => {
-      if (!this.searching) btnBg.setFillStyle(0x5599ff);
+      if (!this.transitioned) btnBg.setFillStyle(0x5599ff);
     });
     btnBg.on('pointerout', () => {
-      if (!this.searching) btnBg.setFillStyle(0x4488ff);
+      if (!this.transitioned) btnBg.setFillStyle(0x4488ff);
     });
     btnBg.on('pointerdown', () => {
-      if (this.searching) return;
-      this.searching = true;
+      if (this.transitioned) return;
       btnBg.setFillStyle(0x3366cc);
-      this.btnText.setText('Searching...');
+      this.btnText.setText('Joined');
       this.statusText.setText('Waiting for opponent...');
+      checkStart();
     });
 
     this.connection.on('open', () => {
@@ -74,11 +78,13 @@ export default class MenuScene extends Phaser.Scene {
     this.connection.on('PLAYER_LIST', (msg) => {
       this.playerCount = msg.players.length + 1;
       this.playerCountText.setText(`Players in lobby: ${this.playerCount}`);
+      checkStart();
     });
 
     this.connection.on('PLAYER_JOINED', () => {
       this.playerCount++;
       this.playerCountText.setText(`Players in lobby: ${this.playerCount}`);
+      checkStart();
     });
 
     this.connection.on('PLAYER_LEFT', () => {
@@ -87,9 +93,7 @@ export default class MenuScene extends Phaser.Scene {
     });
 
     this.connection.on('GAME_STATE', (msg) => {
-      if (this.searching && msg.players.length >= 2) {
-        startGame();
-      }
+      if (msg.players.length >= 2) startGame();
     });
 
     this.connection.connect();

@@ -5,25 +5,13 @@ export default class Player {
   constructor(scene, x, y, config = {}) {
     const { isRemote = false, color = 0x4488ff } = config;
 
-    if (!scene.textures.exists('player')) {
-      const gfx = scene.make.graphics({ add: false });
-      gfx.fillStyle(0xffffff);
-      gfx.fillCircle(16, 10, 7);
-      gfx.fillRect(10, 18, 12, 14);
-      gfx.fillRect(5, 20, 5, 4);
-      gfx.fillRect(22, 20, 5, 4);
-      gfx.fillRect(12, 33, 4, 12);
-      gfx.fillRect(16, 33, 4, 12);
-      gfx.fillTriangle(24, 20, 32, 25, 24, 30);
-      gfx.generateTexture('player', 32, 48);
-      gfx.destroy();
-    }
+    this.generateTextures(scene);
 
     this.scene = scene;
     this.isRemote = isRemote;
     this.playerColor = color;
 
-    this.sprite = scene.add.sprite(x, y, 'player');
+    this.sprite = scene.add.sprite(x, y, 'player_idle');
     this.sprite.setTint(color);
 
     this.facing = 'right';
@@ -42,8 +30,15 @@ export default class Player {
     this.specialAttackCooldown = 0;
 
     this.hitFlashTimer = 0;
+    this.walkTimer = 0;
+    this.walkFrame = 0;
+    this.bobOffset = 0;
+    this.squashStretch = { x: 1, y: 1 };
+    this.lastVx = 0;
+    this.onGround = true;
+    this.landSquashTimer = 0;
 
-    this.damageText = scene.add.text(x, y - 40, '0%', {
+    this.damageText = scene.add.text(x, y - 44, '0%', {
       fontSize: '14px',
       color: '#ffffff',
       fontFamily: 'monospace',
@@ -58,6 +53,71 @@ export default class Player {
     this.shieldGfx.setVisible(false);
   }
 
+  generateTextures(scene) {
+    if (scene.textures.exists('player_idle')) return;
+    const W = 32, H = 48;
+
+    const make = (key, draw) => {
+      const gfx = scene.make.graphics({ add: false });
+      gfx.fillStyle(0xffffff);
+      draw(gfx);
+      gfx.generateTexture(key, W, H);
+      gfx.destroy();
+    };
+
+    make('player_idle', (g) => {
+      g.fillCircle(16, 10, 7);
+      g.fillRect(10, 18, 12, 14);
+      g.fillRect(6, 20, 4, 4);
+      g.fillRect(22, 20, 4, 4);
+      g.fillRect(12, 33, 3, 11);
+      g.fillRect(17, 33, 3, 11);
+      g.fillTriangle(24, 20, 32, 24, 24, 28);
+    });
+
+    make('player_walk1', (g) => {
+      g.fillCircle(16, 10, 7);
+      g.fillRect(10, 18, 12, 14);
+      g.fillRect(5, 21, 4, 3);
+      g.fillRect(23, 19, 4, 6);
+      g.fillRect(10, 33, 3, 13);
+      g.fillRect(18, 33, 3, 9);
+      g.fillTriangle(25, 19, 33, 23, 25, 27);
+    });
+
+    make('player_walk2', (g) => {
+      g.fillCircle(16, 10, 7);
+      g.fillRect(10, 18, 12, 14);
+      g.fillRect(5, 19, 4, 6);
+      g.fillRect(23, 21, 4, 3);
+      g.fillRect(11, 33, 3, 9);
+      g.fillRect(19, 33, 3, 13);
+      g.fillTriangle(25, 19, 33, 23, 25, 27);
+    });
+
+    make('player_jump', (g) => {
+      g.fillCircle(16, 10, 7);
+      g.fillRect(10, 18, 12, 12);
+      g.fillRect(5, 13, 4, 6);
+      g.fillRect(23, 13, 4, 6);
+      g.fillRect(12, 31, 3, 7);
+      g.fillRect(17, 31, 3, 7);
+      g.fillTriangle(25, 19, 33, 23, 25, 27);
+    });
+
+    make('player_shield', (g) => {
+      g.fillCircle(16, 10, 7);
+      g.fillRect(10, 18, 12, 14);
+      g.fillRect(6, 20, 4, 4);
+      g.fillRect(22, 20, 4, 4);
+      g.fillRect(12, 33, 3, 11);
+      g.fillRect(17, 33, 3, 11);
+      g.fillTriangle(24, 20, 32, 24, 24, 28);
+      g.fillStyle(0xffffff, 0.3);
+      g.fillEllipse(16, 24, 30, 40);
+    });
+  }
+
   get x() { return this.sprite.x; }
   get y() { return this.sprite.y; }
 
@@ -70,6 +130,9 @@ export default class Player {
     this.facing = state.facing === -1 ? 'left' : 'right';
     this.shielding = state.shielding || false;
     this.specialMeter = state.specialMeter || 0;
+    this.lastVx = state.vx || 0;
+    this.lastVy = state.vy || 0;
+    this.onGround = state.onGround || false;
 
     if (dmgIncrease > 0) {
       this.hitFlashTimer = 100;
@@ -84,8 +147,8 @@ export default class Player {
   }
 
   handleLocalInput(input) {
-    const { attack, specialAttack, shield, attackDir } = input;
-
+    const { attack, specialAttack, shield, attackDir, vx } = input;
+    if (vx !== undefined) this.lastVx = vx;
     if (attack && !this.attacking && !this.specialAttacking && this.attackCooldown <= 0) {
       this.startAttack(attackDir || 'neutral');
     }
@@ -117,9 +180,7 @@ export default class Player {
         this.attackTimer = 0;
       }
     }
-    if (this.attackCooldown > 0) {
-      this.attackCooldown -= delta;
-    }
+    if (this.attackCooldown > 0) this.attackCooldown -= delta;
     if (this.specialAttackTimer > 0) {
       this.specialAttackTimer -= delta;
       if (this.specialAttackTimer <= 0) {
@@ -127,20 +188,30 @@ export default class Player {
         this.specialAttackTimer = 0;
       }
     }
-    if (this.specialAttackCooldown > 0) {
-      this.specialAttackCooldown -= delta;
-    }
-    if (this.hitFlashTimer > 0) {
-      this.hitFlashTimer -= delta;
-    }
+    if (this.specialAttackCooldown > 0) this.specialAttackCooldown -= delta;
+    if (this.hitFlashTimer > 0) this.hitFlashTimer -= delta;
+    if (this.landSquashTimer > 0) this.landSquashTimer -= delta;
 
+    this.updateWalk(delta);
+    this.updateAnimFrame();
     this.updateVisuals();
   }
 
-  updateVisuals() {
-    const { x, y } = this.sprite;
+  updateWalk(delta) {
+    const moving = Math.abs(this.lastVx) > 0.5;
+    if (moving) {
+      this.walkTimer += delta * 0.01 * Math.min(Math.abs(this.lastVx), 6);
+      this.walkFrame = Math.floor(this.walkTimer) % 2;
+      this.bobOffset = Math.sin(this.walkTimer * Math.PI * 2) * 2.5;
+    } else {
+      this.walkTimer = 0;
+      this.walkFrame = 0;
+      this.bobOffset = 0;
+    }
+  }
 
-    this.sprite.setFlipX(this.facing === 'left');
+  updateAnimFrame() {
+    const { x, y } = this.sprite;
 
     if (this.hitFlashTimer > 0) {
       this.sprite.setTint(0xffffff);
@@ -150,7 +221,39 @@ export default class Player {
       this.sprite.setTint(this.playerColor);
     }
 
-    this.damageText.setPosition(x, y - 40);
+    this.sprite.setFlipX(this.facing === 'left');
+
+    if (this.attacking || this.specialAttacking) {
+      this.sprite.setTexture('player_idle');
+      this.sprite.y = y;
+      this.sprite.setScale(1, 1);
+      return;
+    }
+
+    if (this.shielding) {
+      this.sprite.setTexture('player_shield');
+      this.sprite.y = y;
+      this.sprite.setScale(1, 1);
+      return;
+    }
+
+    const moving = Math.abs(this.lastVx) > 0.5;
+    if (this.onGround) {
+      this.sprite.setTexture(moving ? (this.walkFrame === 0 ? 'player_walk1' : 'player_walk2') : 'player_idle');
+      this.sprite.y = y + this.bobOffset;
+      this.sprite.setScale(1, 1);
+    } else {
+      this.sprite.setTexture('player_jump');
+      if (this.lastVy >= 0) this.sprite.setScale(1.05, 0.95);
+      else this.sprite.setScale(1, 1);
+      this.sprite.y = y;
+    }
+  }
+
+  updateVisuals() {
+    const { x, y } = this.sprite;
+
+    this.damageText.setPosition(x, y - 48);
     this.damageText.setText(`${Math.floor(this.damage)}%`);
     const dmgPct = Math.min(1, this.damage / 150);
     const gb = Math.floor(255 * (1 - dmgPct));
@@ -158,10 +261,10 @@ export default class Player {
 
     if (this.shielding) {
       this.shieldGfx.clear();
-      this.shieldGfx.fillStyle(0x88aaff, 0.2);
-      this.shieldGfx.fillEllipse(x, y, 48, 60);
-      this.shieldGfx.lineStyle(2, 0x88aaff, 0.4);
-      this.shieldGfx.strokeEllipse(x, y, 48, 60);
+      this.shieldGfx.fillStyle(0x88aaff, 0.15);
+      this.shieldGfx.fillEllipse(x, y, 44, 56);
+      this.shieldGfx.lineStyle(2, 0x88aaff, 0.35);
+      this.shieldGfx.strokeEllipse(x, y, 44, 56);
       this.shieldGfx.setVisible(true);
     } else {
       this.shieldGfx.setVisible(false);

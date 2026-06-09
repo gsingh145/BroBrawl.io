@@ -1,7 +1,7 @@
 export const CFG = {
-  GRAVITY: 0.6,
-  MOVE_SPEED: 4,
-  JUMP_VELOCITY: -10,
+  GRAVITY: 0.55,
+  MOVE_SPEED: 4.5,
+  JUMP_VELOCITY: -11,
   PLAYER_W: 32,
   PLAYER_H: 48,
 
