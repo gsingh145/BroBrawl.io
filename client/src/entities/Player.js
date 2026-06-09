@@ -3,8 +3,8 @@ import { CHARACTERS } from '../characters/index.js';
 
 export default class Player {
   constructor(scene, x, y, config = {}) {
-    const { isRemote = false, character = 'blade', playerColor } = config;
-    const ch = CHARACTERS[character] || CHARACTERS.blade;
+    const { isRemote = false, character = 'brawn_boy', playerColor } = config;
+    const ch = CHARACTERS[character] || CHARACTERS.brawn_boy;
 
     this.charConfig = ch;
     this.generateTextures(scene);
@@ -14,6 +14,9 @@ export default class Player {
     this.playerColor = playerColor || ch.color;
 
     this.sprite = scene.add.sprite(x, y, this.texId('idle'));
+    this.baseScaleX = 32 / this.sprite.frame.width;
+    this.baseScaleY = 48 / this.sprite.frame.height;
+    this.sprite.setScale(this.baseScaleX, this.baseScaleY);
     this.sprite.setTint(this.playerColor);
 
     this.facing = 'right';
@@ -207,18 +210,19 @@ export default class Player {
 
     this.sprite.setFlipX(this.facing === 'left');
 
+    const sc = (sx, sy) => this.sprite.setScale(this.baseScaleX * sx, this.baseScaleY * sy);
     const tid = (s) => this.texId(s);
     if (this.attacking || this.specialAttacking) {
       this.sprite.setTexture(tid('idle'));
       this.sprite.y = y;
-      this.sprite.setScale(1, 1);
+      sc(1, 1);
       return;
     }
 
     if (this.shielding) {
       this.sprite.setTexture(tid('shield'));
       this.sprite.y = y;
-      this.sprite.setScale(1, 1);
+      sc(1, 1);
       return;
     }
 
@@ -226,11 +230,11 @@ export default class Player {
     if (this.onGround) {
       this.sprite.setTexture(moving ? (this.walkFrame === 0 ? tid('walk1') : tid('walk2')) : tid('idle'));
       this.sprite.y = y + this.bobOffset;
-      this.sprite.setScale(1, 1);
+      sc(1, 1);
     } else {
       this.sprite.setTexture(tid('jump'));
-      if (this.lastVy >= 0) this.sprite.setScale(1.05, 0.95);
-      else this.sprite.setScale(1, 1);
+      if (this.lastVy >= 0) sc(1.05, 0.95);
+      else sc(1, 1);
       this.sprite.y = y;
     }
   }

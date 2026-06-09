@@ -24,41 +24,42 @@ export default class CharacterSelectScene extends Phaser.Scene {
 
     const { width, height } = this.scale;
 
+    const showChars = CHARACTER_LIST.filter(ch => ch.id === 'brawn_boy' || ch.id === 'wizard' || ch.id === 'shadow' || ch.id === 'samurai');
+
     this.add.rectangle(width / 2, 30, width, 60, 0x1a1a3e).setDepth(5);
     this.add.text(width / 2, 30, 'SELECT YOUR CHARACTER', {
       fontSize: '24px', color: '#ffffff', fontFamily: 'monospace',
     }).setOrigin(0.5).setDepth(6);
 
-    const cols = 4;
-    const rows = 2;
+    const cols = Math.min(showChars.length, 4);
     const cardW = 150;
     const cardH = 170;
     const gapX = 20;
-    const gapY = 20;
     const totalW = cols * (cardW + gapX) - gapX;
     const startX = (width - totalW) / 2 + cardW / 2;
     const startY = height / 2 - 20;
 
     this.cards = [];
-    CHARACTER_LIST.forEach((ch, i) => {
+    showChars.forEach((ch, i) => {
       const col = i % cols;
-      const row = Math.floor(i / cols);
       const cx = startX + col * (cardW + gapX);
-      const cy = startY + (row - 0.5) * (cardH + gapY);
+      const cy = startY;
 
       const bg = this.add.rectangle(cx, cy, cardW, cardH, 0x222244)
         .setStrokeStyle(2, 0x444466)
         .setInteractive({ useHandCursor: true });
 
-      const colorBox = this.add.rectangle(cx, cy - 42, 50, 50, ch.color).setDepth(2);
+      const texKey = `${ch.id}_idle`;
+      const charSprite = this.textures.exists(texKey)
+        ? this.add.sprite(cx, cy - 42, texKey).setDepth(2).setDisplaySize(50, 50)
+        : this.add.rectangle(cx, cy - 42, 50, 50, ch.color).setDepth(2);
 
       this.add.text(cx, cy + 16, ch.name, {
         fontSize: '16px', color: '#ffffff', fontFamily: 'monospace', fontStyle: 'bold',
       }).setOrigin(0.5).setDepth(2);
 
-      this.add.text(cx, cy + 38, ch.description, {
-        fontSize: '9px', color: '#aaaaaa', fontFamily: 'monospace', wordWrap: { width: cardW - 20 },
-        align: 'center',
+      this.add.text(cx, cy + 38, ch.class.toUpperCase(), {
+        fontSize: '9px', color: '#aaaaaa', fontFamily: 'monospace',
       }).setOrigin(0.5).setDepth(2);
 
       const readyText = this.add.text(cx, cy + 65, '', {
@@ -81,7 +82,7 @@ export default class CharacterSelectScene extends Phaser.Scene {
         this.statusText.setText(`Selected ${ch.name}. Waiting for opponent...`);
       });
 
-      this.cards.push({ ch, bg, colorBox, readyText });
+      this.cards.push({ ch, bg, charSprite, readyText });
     });
 
     this.statusText = this.add.text(width / 2, height - 50, 'Click a character to select', {
@@ -106,7 +107,7 @@ export default class CharacterSelectScene extends Phaser.Scene {
 
     this.unsubs.push(
       this.connection.on('GAME_START', (msg) => {
-        const myChar = msg.players.find(p => p.id === this.connection.playerId)?.character || 'blade';
+        const myChar = msg.players.find(p => p.id === this.connection.playerId)?.character || 'brawn_boy';
         this.scene.start('GameScene', { connection: this.connection, character: myChar });
       })
     );

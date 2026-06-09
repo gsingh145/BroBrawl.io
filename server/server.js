@@ -530,9 +530,8 @@ wss.on("connection", (ws) => {
     });
 });
 
-server.listen(PORT, () => {
-    console.log(`BroBrawl server running on http://0.0.0.0:${PORT} (${1000 / C.TICK_RATE}Hz)`);
-    console.log(`Connect from another device: http://<YOUR_IP>:${PORT}`);
+server.listen(PORT, "0.0.0.0", () => {
+    console.log(`Server running on port ${PORT} (${1000 / C.TICK_RATE}Hz)`);
 });
 
 setInterval(tick, C.TICK_RATE);
