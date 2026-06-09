@@ -5,6 +5,28 @@ const WebSocket = require("ws");
 const { PlayerManager } = require("./PlayerManager");
 const C = require("./config");
 
+const CONFIG_STATE_PATH = path.join(__dirname, "config-state.json");
+
+function deepMerge(target, source) {
+    for (const [key, value] of Object.entries(source)) {
+        if (typeof value === "object" && value !== null && !Array.isArray(value) && typeof target[key] === "object" && !Array.isArray(target[key])) {
+            deepMerge(target[key], value);
+        } else {
+            target[key] = value;
+        }
+    }
+}
+
+try {
+    if (fs.existsSync(CONFIG_STATE_PATH)) {
+        const saved = JSON.parse(fs.readFileSync(CONFIG_STATE_PATH, "utf-8"));
+        deepMerge(C, saved);
+        console.log("Loaded saved config from config-state.json");
+    }
+} catch (e) {
+    console.warn("Could not load config-state.json, using defaults:", e.message);
+}
+
 const PORT = process.env.PORT || 8080;
 
 const server = http.createServer((req, res) => {
@@ -31,6 +53,11 @@ const server = http.createServer((req, res) => {
                             C[key] = value;
                         }
                     }
+                }
+                try {
+                    fs.writeFileSync(CONFIG_STATE_PATH, JSON.stringify(C, null, 2));
+                } catch (e) {
+                    console.warn("Could not save config-state.json:", e.message);
                 }
                 return json({ ok: true });
             } catch {
@@ -117,10 +144,15 @@ function handleMessage(ws, raw) {
             }
             break;
         }
-        case "fastFall": {
+        case "fastFallStart": {
             if (!player.onGround) {
+                player.fastFalling = true;
                 player.vy = Math.min(C.MAX_FALL_SPEED, player.vy + C.FAST_FALL_BOOST);
             }
+            break;
+        }
+        case "fastFallEnd": {
+            player.fastFalling = false;
             break;
         }
         case "attack": {
@@ -136,11 +168,17 @@ function handleMessage(ws, raw) {
             break;
         }
         case "specialAttack": {
-            if (player.specialMeter >= C.SPECIAL.maxMeter && !player.specialAttacking && !player.attacking) {
-                player.specialMeter = 0;
+            if (!player.specialAttacking && !player.attacking) {
+                const dir = msg.dir || 'neutral';
+                const scfg = C.SPECIAL_DIRS[dir];
+                if (!scfg) break;
+                const drain = Math.min(C.SPECIAL.meterDrain, player.specialMeter);
+                player.specialMeterUsed = player.specialMeter;
+                player.specialMeter -= drain;
                 player.specialAttacking = true;
-                player.specialAttackTimer = C.SPECIAL.active;
-                player.specialAttackCooldown = C.SPECIAL.cd;
+                player.specialAttackDir = dir;
+                player.specialAttackTimer = scfg.active;
+                player.specialAttackCooldown = scfg.cd;
             }
             break;
         }
@@ -153,7 +191,7 @@ function handleMessage(ws, raw) {
             break;
         }
         case "dash": {
-            if (!player.dashing && player.onGround) {
+            if (!player.dashing) {
                 const dashDir = msg.dir;
                 player.vx = dashDir * C.DASH_SPEED;
                 player.facing = dashDir;
@@ -182,6 +220,8 @@ function die(p) {
         p.dashTimer = 0;
         p.specialMeter = 0;
         p.shieldHealth = C.SHIELD.maxHealth;
+        p.fastFalling = false;
+        p.specialMeterUsed = 0;
     }
 }
 
@@ -201,6 +241,10 @@ function updatePlayer(p) {
         p.shieldHealth = Math.max(0, p.shieldHealth - C.SHIELD.drainRate);
     }
 
+    if (p.fastFalling) {
+        p.vy = Math.min(C.MAX_FALL_SPEED, p.vy + C.FAST_FALL_BOOST);
+    }
+
     const prevY = p.y;
     p.vy += C.GRAVITY;
     p.x += p.vx;
@@ -215,6 +259,7 @@ function updatePlayer(p) {
     const prevBottom = prevY + C.PLAYER_H / 2;
 
     for (const plat of C.PLATFORMS) {
+        if (p.fastFalling && plat.surfaceY !== C.PLATFORMS[0].surfaceY) continue;
         if (p.vy >= 0 && prevBottom <= plat.surfaceY && playerBottom >= plat.surfaceY
             && playerRight > plat.left && playerLeft < plat.right) {
             p.y = plat.surfaceY - C.PLAYER_H / 2;
@@ -236,8 +281,8 @@ function updatePlayer(p) {
 
 /* ── Combat ── */
 
-function getAttackHitbox(p, dir) {
-    const cfg = C.ATTACK_DIRS[dir] || C.ATTACK_DIRS.neutral;
+function getAttackHitbox(p, dir, cfg) {
+    if (!cfg) cfg = C.ATTACK_DIRS[dir] || C.ATTACK_DIRS.neutral;
     const f = p.facing;
     switch (dir) {
         case 'up': {
@@ -254,13 +299,6 @@ function getAttackHitbox(p, dir) {
     }
 }
 
-function getSpecialHitbox(p) {
-    const w = C.SPECIAL.w;
-    const h = C.SPECIAL.h;
-    const x = p.facing === 1 ? p.x + 16 : p.x - 16 - w;
-    return { x, y: p.y - h / 2, w, h };
-}
-
 function getBounds(p) {
     return { x: p.x - C.PLAYER_W / 2, y: p.y - C.PLAYER_H / 2, w: C.PLAYER_W, h: C.PLAYER_H };
 }
@@ -271,10 +309,16 @@ function checkCombat() {
         if (!attacker.attacking && !attacker.specialAttacking) continue;
 
         const isSpecial = attacker.specialAttacking;
-        const hitbox = isSpecial ? getSpecialHitbox(attacker) : getAttackHitbox(attacker, attacker.attackDir);
-        const cfg = isSpecial ? C.SPECIAL : (C.ATTACK_DIRS[attacker.attackDir] || C.ATTACK_DIRS.neutral);
-        const dmg = cfg.dmg;
-        const kbBase = cfg.kb;
+        const sDir = isSpecial ? attacker.specialAttackDir : attacker.attackDir;
+        const cfg = isSpecial
+            ? (C.SPECIAL_DIRS[sDir] || C.SPECIAL_DIRS.neutral)
+            : (C.ATTACK_DIRS[sDir] || C.ATTACK_DIRS.neutral);
+        const hitbox = getAttackHitbox(attacker, sDir, cfg);
+        const rawRatio = isSpecial ? (attacker.specialMeterUsed / C.SPECIAL.maxMeter) : 1;
+        const tier = isSpecial ? Math.max(1, Math.ceil(rawRatio / 0.25)) : 4;
+        const meterRatio = Math.min(1, tier * 0.25);
+        const dmg = Math.max(1, Math.floor(cfg.dmg * meterRatio));
+        const kbBase = Math.max(1, Math.floor(cfg.kb * meterRatio));
 
         for (const target of players) {
             if (target.id === attacker.id) continue;
@@ -297,9 +341,10 @@ function checkCombat() {
             target.attacking = false;
             target.specialAttacking = false;
 
-            if (!isSpecial) {
-                attacker.specialMeter = Math.min(C.SPECIAL.maxMeter, attacker.specialMeter + Math.floor(dmg * C.SPECIAL.meterGainMult));
-            }
+            const meterGain = Math.floor(dmg * (isSpecial ? 0 : C.SPECIAL.meterGainMult));
+            attacker.specialMeter = Math.min(C.SPECIAL.maxMeter, attacker.specialMeter + meterGain);
+            const takenGain = Math.floor(dmg * C.SPECIAL.meterDamageTakenMult);
+            target.specialMeter = Math.min(C.SPECIAL.maxMeter, target.specialMeter + takenGain);
         }
     }
 }

@@ -27,6 +27,7 @@ export default class Player {
     this.attackCooldown = 0;
 
     this.specialAttacking = false;
+    this.specialAttackDir = 'neutral';
     this.specialAttackTimer = 0;
     this.specialAttackCooldown = 0;
 
@@ -144,18 +145,19 @@ export default class Player {
       this.startAttack(state.attackDir || 'neutral');
     }
     if (state.specialAttacking && !this.specialAttacking) {
-      this.startSpecialAttack();
+      this.startSpecialAttack(state.specialAttackDir || 'neutral');
     }
+    this.specialAttackDir = state.specialAttackDir || 'neutral';
   }
 
   handleLocalInput(input) {
-    const { attack, specialAttack, shield, attackDir, vx } = input;
+    const { attack, specialAttack, shield, attackDir, specialDir, vx } = input;
     if (vx !== undefined) this.lastVx = vx;
     if (attack && !this.attacking && !this.specialAttacking && this.attackCooldown <= 0) {
       this.startAttack(attackDir || 'neutral');
     }
     if (specialAttack && !this.specialAttacking && !this.attacking && this.specialAttackCooldown <= 0) {
-      this.startSpecialAttack();
+      this.startSpecialAttack(specialDir || 'neutral');
     }
     this.shielding = shield;
   }
@@ -168,10 +170,12 @@ export default class Player {
     this.attackCooldown = cfg.cd * 50;
   }
 
-  startSpecialAttack() {
+  startSpecialAttack(dir) {
     this.specialAttacking = true;
-    this.specialAttackTimer = CFG.SPECIAL.active * 50;
-    this.specialAttackCooldown = CFG.SPECIAL.cd * 50;
+    this.specialAttackDir = dir || 'neutral';
+    const cfg = CFG.SPECIAL_DIRS[this.specialAttackDir] || CFG.SPECIAL_DIRS.neutral;
+    this.specialAttackTimer = cfg.active * 50;
+    this.specialAttackCooldown = cfg.cd * 50;
   }
 
   update(delta) {
@@ -276,10 +280,21 @@ export default class Player {
     }
 
     if (this.specialAttacking) {
-      const hx = this.facing === 'right' ? x + 16 : x - 16 - CFG.SPECIAL.w;
+      const dir = this.specialAttackDir || 'neutral';
+      const cfg = CFG.SPECIAL_DIRS[dir] || CFG.SPECIAL_DIRS.neutral;
       this.attackGfx.clear();
       this.attackGfx.fillStyle(0xff4400, 0.7);
-      this.attackGfx.fillRect(hx, y - CFG.SPECIAL.h / 2, CFG.SPECIAL.w, CFG.SPECIAL.h);
+      if (dir === 'up') {
+        this.attackGfx.fillRect(x - cfg.w / 2, y - 42, cfg.w, cfg.h);
+      } else if (dir === 'down') {
+        this.attackGfx.fillRect(x - cfg.w / 2, y + 10, cfg.w, cfg.h);
+      } else if (dir === 'neutral') {
+        const cx = this.facing === 'right' ? x + 24 : x - 24 - cfg.w;
+        this.attackGfx.fillRect(cx, y - cfg.h / 2, cfg.w, cfg.h);
+      } else {
+        const sx = this.facing === 'right' ? x + 16 : x - 16 - cfg.w;
+        this.attackGfx.fillRect(sx, y - cfg.h / 2, cfg.w, cfg.h);
+      }
       this.attackGfx.setVisible(true);
     } else if (this.attacking) {
       const dir = this.attackDir || 'neutral';

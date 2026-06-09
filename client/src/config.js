@@ -13,14 +13,17 @@ export const CFG = {
   },
 
   SPECIAL: {
-    active: 6,
-    cd: 12,
-    dmg: 15,
-    kb: 22,
-    w: 64,
-    h: 40,
     maxMeter: 100,
     meterGainMult: 1.0,
+    meterDamageTakenMult: 0.33,
+    meterDrain: 25,
+  },
+
+  SPECIAL_DIRS: {
+    neutral: { active: 6, cd: 12, dmg: 15, kb: 22, w: 64, h: 40 },
+    side:    { active: 6, cd: 12, dmg: 15, kb: 22, w: 64, h: 40 },
+    up:      { active: 6, cd: 12, dmg: 15, kb: 22, w: 64, h: 40 },
+    down:    { active: 6, cd: 12, dmg: 15, kb: 22, w: 64, h: 40 },
   },
 
   DASH_SPEED: 14,

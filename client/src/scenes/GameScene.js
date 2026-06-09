@@ -23,6 +23,7 @@ export default class GameScene extends Phaser.Scene {
     this.keys = this.input.keyboard.addKeys('W,A,S,D,J,K,SHIFT');
 
     this.prevShielding = false;
+    this.prevFastFall = false;
 
     this.winnerId = null;
 
@@ -201,9 +202,6 @@ export default class GameScene extends Phaser.Scene {
     const attack = Phaser.Input.Keyboard.JustDown(this.keys.J);
     const specialAttack = Phaser.Input.Keyboard.JustDown(this.keys.K);
     const shield = this.keys.SHIFT.isDown;
-    const fastFallDown = Phaser.Input.Keyboard.JustDown(this.cursors.down) ||
-                         Phaser.Input.Keyboard.JustDown(this.keys.S);
-
     this.connection.send('move', { dir });
 
     if (Phaser.Input.Keyboard.JustDown(this.keys.A) || Phaser.Input.Keyboard.JustDown(this.cursors.left)) {
@@ -225,9 +223,14 @@ export default class GameScene extends Phaser.Scene {
       this.connection.send('jump');
     }
 
-    if (fastFallDown) {
-      this.connection.send('fastFall');
+    const fastFallHeld = this.keys.S.isDown || this.cursors.down.isDown;
+    if (fastFallHeld && !this.prevFastFall) {
+      this.connection.send('fastFallStart');
     }
+    if (!fastFallHeld && this.prevFastFall) {
+      this.connection.send('fastFallEnd');
+    }
+    this.prevFastFall = fastFallHeld;
 
     let attackDir = 'neutral';
     if (up && !down) attackDir = 'up';
@@ -238,8 +241,12 @@ export default class GameScene extends Phaser.Scene {
       this.connection.send('attack', { dir: attackDir });
     }
 
-    if (specialAttack && this.localPlayer.specialMeter >= 100) {
-      this.connection.send('specialAttack');
+    if (specialAttack) {
+      let specialDir = 'neutral';
+      if (up && !down) specialDir = 'up';
+      else if (down && !up) specialDir = 'down';
+      else if (left || right) specialDir = 'side';
+      this.connection.send('specialAttack', { dir: specialDir });
     }
 
     if (shield !== this.prevShielding) {
@@ -247,8 +254,12 @@ export default class GameScene extends Phaser.Scene {
       this.prevShielding = shield;
     }
 
+    let specialDir = 'neutral';
+    if (up && !down) specialDir = 'up';
+    else if (down && !up) specialDir = 'down';
+    else if (left || right) specialDir = 'side';
     const speed = dir === 'left' ? -4.5 : dir === 'right' ? 4.5 : 0;
-    this.localPlayer.handleLocalInput({ attack, specialAttack, shield, attackDir, vx: speed });
+    this.localPlayer.handleLocalInput({ attack, specialAttack, shield, attackDir, specialDir, vx: speed });
 
     for (const player of Object.values(this.playerMap)) {
       player.update(delta);

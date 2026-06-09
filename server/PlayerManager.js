@@ -23,6 +23,9 @@ const DEFAULT_PLAYER_STATE = {
     specialAttackCooldown: 0,
     specialMeter: 0,
     shieldHealth: 100,
+    fastFalling: false,
+    specialMeterUsed: 0,
+    specialAttackDir: 'neutral',
 };
 
 function copyState(player) {
@@ -45,6 +48,9 @@ function copyState(player) {
         dashTimer: player.dashTimer,
         specialMeter: player.specialMeter,
         shieldHealth: player.shieldHealth,
+        fastFalling: player.fastFalling,
+        specialMeterUsed: player.specialMeterUsed,
+        specialAttackDir: player.specialAttackDir,
     };
 }
 
