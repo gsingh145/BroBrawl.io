@@ -11,6 +11,7 @@ ngrok http 8080
 ## Client fix 
 - use when any client code changes are made
 ```
-npm run build && cp -r dist/* ../server/public/
+rm -rf /Users/gsingh/Desktop/dev/BroBrawl.io/BroBrawl.io/client/dist && npm run build 2>&1
 ```
 - recreates the client side code build so that the server can send to browser
+

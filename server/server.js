@@ -83,7 +83,13 @@ const server = http.createServer((req, res) => {
         }
         const ext = path.extname(fullPath);
         const types = { ".html": "text/html", ".js": "text/javascript", ".css": "text/css", ".png": "image/png" };
-        res.writeHead(200, { "Content-Type": types[ext] || "text/plain" });
+        const headers = { "Content-Type": types[ext] || "text/plain" };
+        if (ext === ".html") {
+            headers["Cache-Control"] = "no-cache, no-store, must-revalidate";
+        } else if (ext === ".js" || ext === ".css") {
+            headers["Cache-Control"] = "no-cache, no-store, must-revalidate";
+        }
+        res.writeHead(200, headers);
         res.end(data);
     });
 });
