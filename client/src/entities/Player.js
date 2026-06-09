@@ -1,18 +1,21 @@
 import Phaser from 'phaser';
 import { CFG } from '../config.js';
+import { CHARACTERS } from '../characters/index.js';
 
 export default class Player {
   constructor(scene, x, y, config = {}) {
-    const { isRemote = false, color = 0x4488ff } = config;
+    const { isRemote = false, character = 'sword' } = config;
+    const ch = CHARACTERS[character] || CHARACTERS.sword;
 
+    this.charConfig = ch;
     this.generateTextures(scene);
 
     this.scene = scene;
     this.isRemote = isRemote;
-    this.playerColor = color;
+    this.playerColor = ch.color;
 
     this.sprite = scene.add.sprite(x, y, 'player_idle');
-    this.sprite.setTint(color);
+    this.sprite.setTint(ch.tint);
 
     this.facing = 'right';
     this.damage = 0;

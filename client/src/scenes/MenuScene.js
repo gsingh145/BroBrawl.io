@@ -44,7 +44,7 @@ export default class MenuScene extends Phaser.Scene {
       if (this.transitioned) return;
       this.transitioned = true;
       this.statusText.setText('Starting game...');
-      this.scene.start('GameScene', { connection: this.connection });
+      this.scene.start('CharacterSelectScene', { connection: this.connection });
     };
 
     const checkStart = () => {

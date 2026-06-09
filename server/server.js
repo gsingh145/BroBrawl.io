@@ -4,6 +4,7 @@ const path = require("path");
 const WebSocket = require("ws");
 const { PlayerManager } = require("./PlayerManager");
 const C = require("./config");
+const CHARACTERS = require("./characters");
 
 const CONFIG_STATE_PATH = path.join(__dirname, "config-state.json");
 
@@ -134,18 +135,20 @@ function handleMessage(ws, raw) {
     switch (msg.type) {
         case "move": {
             if (player.dashing) break;
-            if (msg.dir === "left") { player.vx = -C.MOVE_SPEED; player.facing = -1; }
-            else if (msg.dir === "right") { player.vx = C.MOVE_SPEED; player.facing = 1; }
+            const ms = getCharStats(player).moveSpeed;
+            if (msg.dir === "left") { player.vx = -ms; player.facing = -1; }
+            else if (msg.dir === "right") { player.vx = ms; player.facing = 1; }
             else { player.vx = 0; }
             break;
         }
         case "jump": {
+            const jv = getCharStats(player).jumpVelocity;
             if (player.onGround) {
-                player.vy = C.JUMP_VELOCITY;
+                player.vy = jv;
                 player.onGround = false;
                 player.canDoubleJump = true;
             } else if (player.canDoubleJump) {
-                player.vy = C.JUMP_VELOCITY;
+                player.vy = jv;
                 player.canDoubleJump = false;
             }
             break;
@@ -206,6 +209,21 @@ function handleMessage(ws, raw) {
             }
             break;
         }
+        case "selectCharacter": {
+            if (!msg.character) break;
+            const ok = pm.setCharacter(player.id, msg.character);
+            if (ok) {
+                console.log(`Player ${player.id} chose ${msg.character}`);
+                broadcast({ type: "PLAYER_SELECTED", playerId: player.id, character: msg.character }, ws);
+                if (pm.allPlayersReady()) {
+                    const allPlayers = pm.getAllPlayers();
+                    const info = allPlayers.map(p => ({ id: p.id, character: p.character, x: p.x, y: p.y }));
+                    broadcast({ type: "GAME_START", players: info });
+                    console.log("All players ready - game starting");
+                }
+            }
+            break;
+        }
     }
 }
 
@@ -231,6 +249,10 @@ function die(p) {
     }
 }
 
+function getCharStats(p) {
+    return CHARACTERS[p.character] || CHARACTERS.sword;
+}
+
 function updatePlayer(p) {
     if (p.attackTimer > 0) p.attackTimer--;
     else p.attacking = false;
@@ -251,6 +273,7 @@ function updatePlayer(p) {
         p.vy = Math.min(C.MAX_FALL_SPEED, p.vy + C.FAST_FALL_BOOST);
     }
 
+    const stats = getCharStats(p);
     const prevY = p.y;
     p.vy += C.GRAVITY;
     p.x += p.vx;
@@ -323,18 +346,21 @@ function checkCombat() {
         const rawRatio = isSpecial ? (attacker.specialMeterUsed / C.SPECIAL.maxMeter) : 1;
         const tier = isSpecial ? Math.max(1, Math.ceil(rawRatio / 0.25)) : 4;
         const meterRatio = Math.min(1, tier * 0.25);
-        const dmg = Math.max(1, Math.floor(cfg.dmg * meterRatio));
+        const rawDmg = Math.max(1, Math.floor(cfg.dmg * meterRatio));
         const kbBase = Math.max(1, Math.floor(cfg.kb * meterRatio));
+        const atkStats = getCharStats(attacker);
 
         for (const target of players) {
             if (target.id === attacker.id) continue;
             const bounds = getBounds(target);
             if (!rectsOverlap(hitbox, bounds)) continue;
+            const defStats = getCharStats(target);
 
+            const dmg = Math.max(1, Math.floor(rawDmg * atkStats.dmgDealtMult * defStats.dmgTakenMult));
             const dir = target.x < attacker.x ? -1 : 1;
-            const kb = kbBase + target.damage * 0.3;
+            const kb = (kbBase + target.damage * 0.3) * defStats.weight;
             target.vx = dir * kb;
-            target.vy = -8 - target.damage * 0.2;
+            target.vy = (-8 - target.damage * 0.2) * defStats.weight;
             if (target.shielding && target.shieldHealth > 0) {
                 const ratio = target.shieldHealth / C.SHIELD.maxHealth;
                 const mult = C.SHIELD.baseReduction + (1 - C.SHIELD.baseReduction) * (1 - ratio);

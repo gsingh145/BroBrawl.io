@@ -1,31 +1,19 @@
 const crypto = require("crypto");
 const { SPAWN_POSITIONS } = require("./config");
+const CHARACTERS = require("./characters");
 
-const DEFAULT_PLAYER_STATE = {
-    x: 100,
-    y: 100,
-    vx: 0,
-    vy: 0,
-    damage: 0,
-    stocks: 3,
-    facing: 1,
-    shielding: false,
-    attacking: false,
-    attackDir: 'neutral',
-    specialAttacking: false,
-    onGround: false,
-    canDoubleJump: false,
-    attackTimer: 0,
-    specialAttackTimer: 0,
-    dashing: false,
-    dashTimer: 0,
-    attackCooldown: 0,
-    specialAttackCooldown: 0,
-    specialMeter: 0,
-    shieldHealth: 100,
-    fastFalling: false,
-    specialMeterUsed: 0,
-    specialAttackDir: 'neutral',
+const BASE_STATE = {
+    vx: 0, vy: 0, damage: 0, stocks: 3,
+    facing: 1, shielding: false, attacking: false,
+    attackDir: 'neutral', specialAttacking: false,
+    onGround: false, canDoubleJump: false,
+    attackTimer: 0, specialAttackTimer: 0,
+    dashing: false, dashTimer: 0,
+    attackCooldown: 0, specialAttackCooldown: 0,
+    specialMeter: 0, shieldHealth: 100,
+    fastFalling: false, specialMeterUsed: 0,
+    specialAttackDir: 'neutral', character: null,
+    characterReady: false,
 };
 
 function copyState(player) {
@@ -51,6 +39,7 @@ function copyState(player) {
         fastFalling: player.fastFalling,
         specialMeterUsed: player.specialMeterUsed,
         specialAttackDir: player.specialAttackDir,
+        character: player.character,
     };
 }
 
@@ -66,14 +55,30 @@ class PlayerManager {
         const spawn = SPAWN_POSITIONS[this.players.size] || { x: 400, y: 100 };
         const player = {
             id,
-            ...DEFAULT_PLAYER_STATE,
+            ...BASE_STATE,
             x: spawn.x,
             y: spawn.y,
+            stocks: 3,
         };
         this.players.set(id, player);
         this.wsToId.set(ws, id);
         this.idToWs.set(id, ws);
         return player;
+    }
+
+    setCharacter(id, characterId) {
+        const player = this.players.get(id);
+        if (!player) return false;
+        const ch = CHARACTERS[characterId];
+        if (!ch) return false;
+        player.character = characterId;
+        player.stocks = ch.stocks || 3;
+        return true;
+    }
+
+    allPlayersReady() {
+        const players = this.getAllPlayers();
+        return players.length >= 2 && players.every(p => p.character);
     }
 
     removePlayer(ws) {
