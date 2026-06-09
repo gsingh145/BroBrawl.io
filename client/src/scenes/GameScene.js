@@ -8,7 +8,7 @@ export default class GameScene extends Phaser.Scene {
 
   create(data) {
     this.connection = data.connection;
-    this.myCharacter = data.character || 'sword';
+    this.myCharacter = data.character || 'blade';
 
     this.createBackground();
     this.createPlatforms();
@@ -118,7 +118,7 @@ export default class GameScene extends Phaser.Scene {
       } else {
         let player = this.playerMap[state.id];
         if (!player) {
-          const charId = state.character || 'sword';
+          const charId = state.character || 'blade';
           player = new Player(this, state.x, state.y, {
             isRemote: true,
             character: charId,

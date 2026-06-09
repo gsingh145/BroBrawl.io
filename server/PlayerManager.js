@@ -1,6 +1,7 @@
 const crypto = require("crypto");
 const { SPAWN_POSITIONS } = require("./config");
 const CHARACTERS = require("./characters");
+const DEFAULT_CHAR = CHARACTERS.blade || Object.values(CHARACTERS)[0];
 
 const BASE_STATE = {
     vx: 0, vy: 0, damage: 0, stocks: 3,

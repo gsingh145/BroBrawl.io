@@ -4,8 +4,8 @@ import { CHARACTERS } from '../characters/index.js';
 
 export default class Player {
   constructor(scene, x, y, config = {}) {
-    const { isRemote = false, character = 'sword' } = config;
-    const ch = CHARACTERS[character] || CHARACTERS.sword;
+    const { isRemote = false, character = 'blade' } = config;
+    const ch = CHARACTERS[character] || CHARACTERS.blade;
 
     this.charConfig = ch;
     this.generateTextures(scene);

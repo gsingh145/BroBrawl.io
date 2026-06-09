@@ -1,10 +1,6 @@
-export const CHARACTERS = {
+export const CLASSES = {
   heavy: {
     id: 'heavy',
-    name: 'Heavy',
-    description: 'Slow, tanky, huge damage.',
-    color: 0xff4444,
-    tint: 0xff6666,
     moveSpeed: 3.0,
     jumpVelocity: -9,
     weight: 0.6,
@@ -15,10 +11,6 @@ export const CHARACTERS = {
   },
   zoner: {
     id: 'zoner',
-    name: 'Zoner',
-    description: 'Long-range attacks, controls space.',
-    color: 0x44ff44,
-    tint: 0x66ff66,
     moveSpeed: 4.0,
     jumpVelocity: -10,
     weight: 1.0,
@@ -29,10 +21,6 @@ export const CHARACTERS = {
   },
   combo: {
     id: 'combo',
-    name: 'Combo',
-    description: 'Fast, mobile, long combos.',
-    color: 0xffff44,
-    tint: 0xffff66,
     moveSpeed: 5.5,
     jumpVelocity: -12,
     weight: 1.2,
@@ -43,10 +31,6 @@ export const CHARACTERS = {
   },
   sword: {
     id: 'sword',
-    name: 'Sword',
-    description: 'Strong range and spacing, balanced.',
-    color: 0x4488ff,
-    tint: 0x66aaff,
     moveSpeed: 4.5,
     jumpVelocity: -11,
     weight: 0.9,
@@ -54,6 +38,94 @@ export const CHARACTERS = {
     dmgTakenMult: 0.9,
     stocks: 3,
     jumpCount: 2,
+  },
+};
+
+function classStats(cls) {
+  const c = CLASSES[cls];
+  return {
+    moveSpeed: c.moveSpeed,
+    jumpVelocity: c.jumpVelocity,
+    weight: c.weight,
+    dmgDealtMult: c.dmgDealtMult,
+    dmgTakenMult: c.dmgTakenMult,
+    stocks: c.stocks,
+    jumpCount: c.jumpCount,
+  };
+}
+
+export const CHARACTERS = {
+  brick: {
+    id: 'brick',
+    name: 'Brick',
+    class: 'heavy',
+    color: 0xff4444,
+    tint: 0xff6666,
+    description: 'A slow-moving wall of muscle.',
+    ...classStats('heavy'),
+  },
+  goliath: {
+    id: 'goliath',
+    name: 'Goliath',
+    class: 'heavy',
+    color: 0xcc44ff,
+    tint: 0xdd66ff,
+    description: 'Crushing force, unbreakable defense.',
+    ...classStats('heavy'),
+  },
+  sniper: {
+    id: 'sniper',
+    name: 'Sniper',
+    class: 'zoner',
+    color: 0x44ff44,
+    tint: 0x66ff66,
+    description: 'Picks apart foes from a distance.',
+    ...classStats('zoner'),
+  },
+  wizard: {
+    id: 'wizard',
+    name: 'Wizard',
+    class: 'zoner',
+    color: 0x44ddff,
+    tint: 0x66eeff,
+    description: 'Arcane projectiles control the battlefield.',
+    ...classStats('zoner'),
+  },
+  swift: {
+    id: 'swift',
+    name: 'Swift',
+    class: 'combo',
+    color: 0xffff44,
+    tint: 0xffff66,
+    description: 'Lightning-fast strikes and movement.',
+    ...classStats('combo'),
+  },
+  shadow: {
+    id: 'shadow',
+    name: 'Shadow',
+    class: 'combo',
+    color: 0x8844ff,
+    tint: 0xaa66ff,
+    description: 'Elusive assassin with deadly combos.',
+    ...classStats('combo'),
+  },
+  blade: {
+    id: 'blade',
+    name: 'Blade',
+    class: 'sword',
+    color: 0x4488ff,
+    tint: 0x66aaff,
+    description: 'Precise swordplay with perfect spacing.',
+    ...classStats('sword'),
+  },
+  valkyrie: {
+    id: 'valkyrie',
+    name: 'Valkyrie',
+    class: 'sword',
+    color: 0xff8800,
+    tint: 0xffaa44,
+    description: 'Balanced offense with righteous reach.',
+    ...classStats('sword'),
   },
 };
 

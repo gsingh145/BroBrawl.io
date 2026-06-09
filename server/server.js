@@ -252,7 +252,7 @@ function die(p) {
 }
 
 function getCharStats(p) {
-    return CHARACTERS[p.character] || CHARACTERS.sword;
+    return CHARACTERS[p.character] || CHARACTERS.blade;
 }
 
 function updatePlayer(p) {
