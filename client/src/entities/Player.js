@@ -260,47 +260,24 @@ export default class Player {
 
     const col = this.playerColor || 0xffffff;
     const bright = Phaser.Display.Color.IntegerToColor(col);
-    const r = bright.red, g = bright.green, b = bright.blue;
+    const color = { red: bright.red, green: bright.green, blue: bright.blue };
+    const facing = this.facing === 'right' ? 1 : -1;
+    const cls = this.charConfig.class || 'sword';
 
     if (this.specialAttacking) {
       const dir = this.specialAttackDir || 'neutral';
       const cfg = this.charConfig.specials[dir] || this.charConfig.specials.neutral;
       this.attackGfx.clear();
-      this.attackGfx.fillStyle(0xff4400, 0.7);
-      if (dir === 'up') {
-        this.attackGfx.fillRect(x - cfg.w / 2, y - 42, cfg.w, cfg.h);
-      } else if (dir === 'down') {
-        this.attackGfx.fillRect(x - cfg.w / 2, y + 10, cfg.w, cfg.h);
-      } else if (dir === 'neutral') {
-        const cx = this.facing === 'right' ? x + 24 : x - 24 - cfg.w;
-        this.attackGfx.fillRect(cx, y - cfg.h / 2, cfg.w, cfg.h);
-      } else {
-        const sx = this.facing === 'right' ? x + 16 : x - 16 - cfg.w;
-        this.attackGfx.fillRect(sx, y - cfg.h / 2, cfg.w, cfg.h);
-      }
+      const fn = SPECIAL_FX[cls] || SPECIAL_FX.sword;
+      fn(this.attackGfx, x, y, cfg, facing, color);
       this.attackGfx.setVisible(true);
     } else if (this.attacking) {
       const dir = this.attackDir || 'neutral';
       const cfg = this.charConfig.attacks[dir] || this.charConfig.attacks.neutral;
       this.attackGfx.clear();
-
-      if (dir === 'up') {
-        this.attackGfx.fillStyle(Phaser.Display.Color.GetColor(r, g, b), 0.6);
-        this.attackGfx.fillEllipse(x, y - 36, cfg.w * 1.5, cfg.h);
-      } else if (dir === 'down') {
-        this.attackGfx.fillStyle(Phaser.Display.Color.GetColor(r, g, b), 0.6);
-        const sx = this.facing === 'right' ? x + 12 : x - 12 - cfg.w;
-        this.attackGfx.fillTriangle(sx, y + 10, sx + cfg.w, y + 10, sx + cfg.w / 2, y + 10 + cfg.h);
-      } else if (dir === 'neutral') {
-        const cx = this.facing === 'right' ? x + 24 : x - 24;
-        this.attackGfx.fillStyle(Phaser.Display.Color.GetColor(r, g, b), 0.6);
-        this.attackGfx.fillCircle(cx, y, cfg.w / 2);
-      } else {
-        const hx = this.facing === 'right' ? x + 16 : x - 16 - cfg.w;
-        this.attackGfx.fillStyle(Phaser.Display.Color.GetColor(r, g, b), 0.6);
-        this.attackGfx.fillRect(hx, y - cfg.h / 2, cfg.w, cfg.h);
-      }
-
+      const dirFx = ATK_FX[cls];
+      const fn = dirFx?.[dir] || ATK_FX.sword.side;
+      fn(this.attackGfx, x, y, cfg, facing, color);
       this.attackGfx.setVisible(true);
     } else {
       this.attackGfx.setVisible(false);
@@ -314,3 +291,261 @@ export default class Player {
     this.shieldGfx?.destroy();
   }
 }
+
+/* ── Color helper ── */
+function hexCol(c) {
+  return Phaser.Display.Color.GetColor(c.red, c.green, c.blue);
+}
+
+/* ── Attack visuals ── */
+const ATK_FX = {};
+
+/* Heavy */
+ATK_FX.heavy = {
+  neutral(g, x, y, cfg, f, c) {
+    const cx = x + f * 20;
+    const r = Math.max(4, cfg.w / 2);
+    g.fillStyle(hexCol(c), 0.5);
+    g.fillCircle(cx, y, r);
+    g.lineStyle(3, hexCol(c), 0.8);
+    g.strokeCircle(cx, y, r + 4);
+    g.lineStyle(1.5, hexCol(c), 0.4);
+    for (let i = -1; i <= 1; i++) {
+      const ly = y + i * r * 0.6;
+      g.lineBetween(cx - r - 8, ly, cx - r, ly);
+      g.lineBetween(cx + r, ly, cx + r + 8, ly);
+    }
+  },
+  side(g, x, y, cfg, f, c) {
+    const sx = x + f * 16;
+    const rx = f === 1 ? sx : sx - cfg.w;
+    g.fillStyle(hexCol(c), 0.6);
+    g.fillRect(rx, y - cfg.h / 2, cfg.w, cfg.h);
+    g.lineStyle(2, hexCol(c), 0.4);
+    for (let i = -1; i <= 1; i++) {
+      const ly = y + i * 8;
+      const len = 16 + Math.abs(i) * 8;
+      const lx = f === 1 ? rx + cfg.w + 4 : rx - 4;
+      g.lineBetween(lx, ly, lx + f * len, ly);
+    }
+  },
+  up(g, x, y, cfg, f, c) {
+    const top = y - 42;
+    g.fillStyle(hexCol(c), 0.6);
+    g.fillRect(x - cfg.w / 2, top, cfg.w, cfg.h);
+    g.fillStyle(hexCol(c), 0.4);
+    g.fillTriangle(x - cfg.w / 2 - 6, top + cfg.h, x + cfg.w / 2 + 6, top + cfg.h, x, top + cfg.h + 10);
+  },
+  down(g, x, y, cfg, f, c) {
+    const top = y + 10;
+    g.fillStyle(hexCol(c), 0.6);
+    g.fillTriangle(x - cfg.w / 2, top, x + cfg.w / 2, top, x, top + cfg.h);
+    g.lineStyle(2, hexCol(c), 0.5);
+    const bot = top + cfg.h;
+    g.lineBetween(x - 10, bot, x - 6, bot + 8);
+    g.lineBetween(x + 10, bot, x + 6, bot + 8);
+    g.lineBetween(x, bot, x, bot + 10);
+  },
+};
+
+/* Zoner */
+ATK_FX.zoner = {
+  neutral(g, x, y, cfg, f, c) {
+    const cx = x + f * 20;
+    const hw = Math.max(4, cfg.w / 2);
+    const hh = Math.max(4, cfg.h / 2);
+    g.fillStyle(hexCol(c), 0.6);
+    g.fillTriangle(cx, y - hh, cx - hw, y, cx, y + hh);
+    g.fillTriangle(cx, y - hh, cx + hw, y, cx, y + hh);
+    g.fillStyle(0xffffff, 0.8);
+    g.fillCircle(cx, y, 3);
+  },
+  side(g, x, y, cfg, f, c) {
+    const sx = x + f * 16;
+    const len = Math.max(8, cfg.w);
+    const rx = f === 1 ? sx : sx - len;
+    g.fillStyle(hexCol(c), 0.6);
+    g.fillRect(rx, y - 3, len, 6);
+    g.fillTriangle(
+      f === 1 ? rx + len : rx, y - 6,
+      f === 1 ? rx + len : rx, y + 6,
+      f === 1 ? rx + len + f * 8 : rx + f * 8, y
+    );
+    g.fillStyle(hexCol(c), 0.3);
+    for (let i = 1; i <= 2; i++) {
+      const dx = f === 1 ? rx - i * 12 : rx + len + i * 12;
+      g.fillCircle(dx, y, 2);
+    }
+  },
+  up(g, x, y, cfg, f, c) {
+    const top = y - 36;
+    g.fillStyle(hexCol(c), 0.6);
+    g.fillTriangle(x - cfg.w / 2, top + cfg.h, x + cfg.w / 2, top + cfg.h, x, top);
+    g.fillStyle(hexCol(c), 0.4);
+    for (let i = 0; i < 3; i++) {
+      g.fillCircle(x + (i - 1) * 8, top - 6 - i * 4, 2 + i);
+    }
+  },
+  down(g, x, y, cfg, f, c) {
+    const cy = y + 20;
+    g.fillStyle(hexCol(c), 0.6);
+    g.fillCircle(x, cy, Math.max(3, cfg.w / 4));
+    g.lineStyle(2, hexCol(c), 0.4);
+    for (let i = 0; i < 4; i++) {
+      const a = i * Math.PI / 2 + Math.PI / 4;
+      const r1 = Math.max(4, cfg.w / 4);
+      const r2 = Math.max(8, cfg.w / 2 + 4);
+      g.lineBetween(x + Math.cos(a) * r1, cy + Math.sin(a) * r1, x + Math.cos(a) * r2, cy + Math.sin(a) * r2);
+    }
+  },
+};
+
+/* Combo */
+ATK_FX.combo = {
+  neutral(g, x, y, cfg, f, c) {
+    const cx = x + f * 20;
+    const r = Math.max(3, cfg.w / 3);
+    g.fillStyle(hexCol(c), 0.5);
+    g.fillCircle(cx - 4, y, r);
+    g.fillCircle(cx + 4, y, r);
+    g.fillStyle(hexCol(c), 0.3);
+    g.fillCircle(cx - 8, y, r * 0.7);
+    g.fillCircle(cx + 8, y, r * 0.7);
+  },
+  side(g, x, y, cfg, f, c) {
+    const cx = x + f * 24;
+    const r = Math.max(4, cfg.w / 2);
+    g.lineStyle(3, hexCol(c), 0.7);
+    g.beginPath();
+    g.arc(cx, y, r, f > 0 ? -2.0 : 2.0, f > 0 ? 2.0 : -2.0, f < 0);
+    g.strokePath();
+    g.lineStyle(1.5, hexCol(c), 0.3);
+    g.beginPath();
+    g.arc(cx, y, r + 4, f > 0 ? -1.8 : 1.8, f > 0 ? 1.8 : -1.8, f < 0);
+    g.strokePath();
+  },
+  up(g, x, y, cfg, f, c) {
+    const top = y - 36;
+    g.lineStyle(3, hexCol(c), 0.7);
+    g.beginPath();
+    g.arc(x - 8, top + cfg.h, Math.max(4, cfg.w / 2), -2.8, 0.3);
+    g.strokePath();
+    g.fillStyle(hexCol(c), 0.4);
+    g.fillTriangle(x - 4, top, x + 4, top, x, top - 8);
+  },
+  down(g, x, y, cfg, f, c) {
+    const top = y + 10;
+    g.lineStyle(3, hexCol(c), 0.6);
+    g.beginPath();
+    g.arc(x + f * 4, top + 6, Math.max(4, cfg.w / 2), 2.5, 4.5);
+    g.strokePath();
+    g.fillStyle(hexCol(c), 0.4);
+    g.fillTriangle(x - 5, top + cfg.h - 4, x + 5, top + cfg.h - 4, x, top + cfg.h + 6);
+  },
+};
+
+/* Sword */
+ATK_FX.sword = {
+  neutral(g, x, y, cfg, f, c) {
+    const cx = x + f * 20;
+    const r = Math.max(4, cfg.w / 2);
+    g.lineStyle(3, hexCol(c), 0.7);
+    g.beginPath();
+    g.arc(cx, y, r, 0, 5.6);
+    g.strokePath();
+    g.lineStyle(1, hexCol(c), 0.3);
+    g.beginPath();
+    g.arc(cx, y, r + 4, 0, 5.6);
+    g.strokePath();
+  },
+  side(g, x, y, cfg, f, c) {
+    const cx = x + f * 20;
+    const r = Math.max(4, cfg.w / 2);
+    g.lineStyle(3, hexCol(c), 0.7);
+    g.beginPath();
+    g.arc(cx, y, r, f > 0 ? -2.2 : 2.2, f > 0 ? 2.2 : -2.2, f < 0);
+    g.strokePath();
+    g.fillStyle(hexCol(c), 0.25);
+    g.beginPath();
+    g.arc(cx, y, r - 3, f > 0 ? -2.0 : 2.0, f > 0 ? 2.0 : -2.0, f < 0);
+    g.lineTo(cx, y);
+    g.closePath();
+    g.fillPath();
+  },
+  up(g, x, y, cfg, f, c) {
+    const top = y - 36;
+    g.lineStyle(3, hexCol(c), 0.7);
+    g.beginPath();
+    g.arc(x, top + cfg.h, Math.max(4, cfg.w / 2), -2.7, 0.3);
+    g.strokePath();
+    g.fillStyle(hexCol(c), 0.3);
+    g.fillCircle(x, top + 4, 4);
+  },
+  down(g, x, y, cfg, f, c) {
+    const top = y + 10;
+    g.lineStyle(3, hexCol(c), 0.7);
+    g.beginPath();
+    g.arc(x, top, Math.max(4, cfg.w / 2), 2.8, 5.0);
+    g.strokePath();
+    g.fillStyle(hexCol(c), 0.3);
+    g.fillCircle(x, top + cfg.h - 4, 4);
+  },
+};
+
+/* ── Special visuals ── */
+const SPECIAL_FX = {
+  heavy(g, x, y, cfg, f, c) {
+    const r = Math.max(4, cfg.w / 2);
+    g.fillStyle(hexCol(c), 0.35);
+    g.fillCircle(x, y, r);
+    g.lineStyle(4, hexCol(c), 0.6);
+    g.strokeCircle(x, y, r + 4);
+    g.lineStyle(2, hexCol(c), 0.25);
+    g.strokeCircle(x, y, r + 10);
+    for (let i = 0; i < 8; i++) {
+      const a = i * Math.PI / 4;
+      const r1 = r + 12;
+      const r2 = r + 20;
+      g.lineBetween(x + Math.cos(a) * r1, y + Math.sin(a) * r1, x + Math.cos(a) * r2, y + Math.sin(a) * r2);
+    }
+  },
+  zoner(g, x, y, cfg, f, c) {
+    const len = Math.max(8, cfg.w);
+    const sx = f === 1 ? x + 16 : x - 16 - len;
+    g.fillStyle(hexCol(c), 0.6);
+    g.fillRect(sx, y - 4, len, 8);
+    g.fillTriangle(
+      f === 1 ? sx + len : sx, y - 8,
+      f === 1 ? sx + len : sx, y + 8,
+      f === 1 ? sx + len + f * 12 : sx + f * 12, y
+    );
+    g.fillStyle(hexCol(c), 0.3);
+    for (let i = 1; i <= 3; i++) {
+      const dx = f === 1 ? sx - i * 14 : sx + len + i * 14;
+      g.fillCircle(dx, y, 3 - i * 0.5);
+    }
+  },
+  combo(g, x, y, cfg, f, c) {
+    const r = Math.max(4, cfg.w / 2);
+    g.lineStyle(3, hexCol(c), 0.6);
+    for (let i = 0; i < 8; i++) {
+      const a = i * Math.PI / 4;
+      g.lineBetween(x, y, x + Math.cos(a) * r, y + Math.sin(a) * r);
+    }
+    g.fillStyle(hexCol(c), 0.4);
+    g.fillCircle(x, y, r / 3);
+  },
+  sword(g, x, y, cfg, f, c) {
+    const r = Math.max(4, cfg.w / 2);
+    g.lineStyle(4, hexCol(c), 0.6);
+    g.beginPath();
+    g.arc(x, y, r, -1.8, 1.8);
+    g.strokePath();
+    g.lineStyle(2, hexCol(c), 0.3);
+    g.beginPath();
+    g.arc(x, y, r + 6, -1.6, 1.6);
+    g.strokePath();
+    g.fillStyle(hexCol(c), 0.3);
+    g.fillCircle(x + r, y, 5);
+  },
+};

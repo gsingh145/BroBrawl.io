@@ -5,6 +5,7 @@ const WebSocket = require("ws");
 const { PlayerManager } = require("./PlayerManager");
 const C = require("./config");
 const CHARACTERS = require("./characters");
+const CLASSES = CHARACTERS.CLASSES;
 
 const CONFIG_STATE_PATH = path.join(__dirname, "config-state.json");
 
@@ -26,6 +27,17 @@ try {
     }
 } catch (e) {
     console.warn("Could not load config-state.json, using defaults:", e.message);
+}
+
+const CHAR_STATE_PATH = path.join(__dirname, "characters-state.json");
+try {
+    if (fs.existsSync(CHAR_STATE_PATH)) {
+        const saved = JSON.parse(fs.readFileSync(CHAR_STATE_PATH, "utf-8"));
+        deepMerge(CLASSES, saved);
+        console.log("Loaded saved character config from characters-state.json");
+    }
+} catch (e) {
+    console.warn("Could not load characters-state.json:", e.message);
 }
 
 const PORT = process.env.PORT || 8080;
@@ -59,6 +71,30 @@ const server = http.createServer((req, res) => {
                     fs.writeFileSync(CONFIG_STATE_PATH, JSON.stringify(C, null, 2));
                 } catch (e) {
                     console.warn("Could not save config-state.json:", e.message);
+                }
+                return json({ ok: true });
+            } catch {
+                return json({ error: "Bad request" }, 400);
+            }
+        });
+        return;
+    }
+
+    /* ── Characters API ── */
+    if (req.url === "/api/characters" && req.method === "GET") {
+        return json(CLASSES);
+    }
+    if (req.url === "/api/characters" && req.method === "POST") {
+        let body = "";
+        req.on("data", (chunk) => (body += chunk));
+        req.on("end", () => {
+            try {
+                const updates = JSON.parse(body);
+                deepMerge(CLASSES, updates);
+                try {
+                    fs.writeFileSync(CHAR_STATE_PATH, JSON.stringify(CLASSES, null, 2));
+                } catch (e) {
+                    console.warn("Could not save characters-state.json:", e.message);
                 }
                 return json({ ok: true });
             } catch {
