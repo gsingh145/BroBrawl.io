@@ -1,0 +1,194 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>BroBrawl Config</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: #111; color: #ddd; font: 14px/1.4 monospace; padding: 20px; }
+  h1 { color: #fff; margin-bottom: 16px; font-size: 22px; }
+  h2 { color: #88ccff; margin: 20px 0 10px; font-size: 16px; border-bottom: 1px solid #333; padding-bottom: 4px; }
+  .row { display: flex; align-items: center; gap: 10px; margin: 6px 0; }
+  .row label { width: 180px; flex-shrink: 0; color: #aaa; }
+  .row input[type=range] { flex: 1; max-width: 300px; }
+  .row .val { width: 60px; text-align: right; color: #fff; }
+  .sub { margin-left: 20px; }
+  .saved { color: #4c4; margin-left: 8px; font-size: 12px; opacity: 0; transition: opacity .3s; }
+  .saved.show { opacity: 1; }
+  button { padding: 6px 18px; cursor: pointer; font: 14px monospace; border: none; border-radius: 4px; }
+  #resetBtn { background: #c44; color: #fff; margin-top: 20px; }
+  #status { margin-top: 12px; color: #888; }
+</style>
+</head>
+<body>
+<h1>BroBrawl Config</h1>
+<div id="status">Loading...</div>
+<div id="app"></div>
+
+<script>
+const $ = s => document.querySelector(s);
+const $$ = s => document.querySelectorAll(s);
+
+async function getConfig() {
+  const r = await fetch('/api/config');
+  return r.json();
+}
+
+async function patchConfig(updates) {
+  await fetch('/api/config', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(updates) });
+}
+
+const DEFAULTS = null;
+let cfg = {};
+
+function makeSlider(label, path, min, max, step, def) {
+  const parts = path.split('.');
+  const row = document.createElement('div');
+  row.className = 'row';
+  const lab = document.createElement('label');
+  lab.textContent = label;
+  const inp = document.createElement('input');
+  inp.type = 'range';
+  inp.min = min; inp.max = max; inp.step = step ?? 1;
+  const val = document.createElement('span');
+  val.className = 'val';
+  const saved = document.createElement('span');
+  saved.className = 'saved';
+  saved.textContent = 'saved';
+
+  function getVal() {
+    let o = cfg;
+    for (const p of parts) o = o[p];
+    return o;
+  }
+  function setVal(v) {
+    let o = cfg;
+    for (let i = 0; i < parts.length - 1; i++) o = o[parts[i]];
+    o[parts[parts.length - 1]] = v;
+  }
+
+  inp.value = getVal();
+  val.textContent = getVal();
+
+  let timer;
+  inp.addEventListener('input', () => {
+    const v = parseFloat(inp.value);
+    val.textContent = v;
+    setVal(v);
+    clearTimeout(timer);
+    saved.classList.remove('show');
+  });
+  inp.addEventListener('change', async () => {
+    const v = parseFloat(inp.value);
+    val.textContent = v;
+    setVal(v);
+    const topKey = parts[0];
+    if (parts.length > 1) {
+      const rest = {};
+      let o = rest;
+      for (let i = 1; i < parts.length; i++) {
+        if (i === parts.length - 1) o[parts[i]] = v;
+        else { o[parts[i]] = {}; o = o[parts[i]]; }
+      }
+      await patchConfig({ [topKey]: rest[parts[1]] });
+    } else {
+      await patchConfig({ [topKey]: v });
+    }
+    saved.classList.add('show');
+    timer = setTimeout(() => saved.classList.remove('show'), 1500);
+  });
+
+  row.appendChild(lab);
+  row.appendChild(inp);
+  row.appendChild(val);
+  row.appendChild(saved);
+  return row;
+}
+
+function makeCategory(title) {
+  const h = document.createElement('h2');
+  h.textContent = title;
+  return h;
+}
+
+function render() {
+  const app = $('#app');
+  app.innerHTML = '';
+
+  /* Physics */
+  app.appendChild(makeCategory('Physics'));
+  app.appendChild(makeSlider('Gravity', 'GRAVITY', 0, 2, 0.05, 0.6));
+  app.appendChild(makeSlider('Friction', 'FRICTION', 0, 1, 0.01, 0.85));
+  app.appendChild(makeSlider('Move Speed', 'MOVE_SPEED', 0, 15, 0.5, 4));
+  app.appendChild(makeSlider('Jump Velocity', 'JUMP_VELOCITY', -20, 0, 0.5, -10));
+
+  /* Attacks */
+  const dirs = [
+    ['Neutral Attack', 'ATTACK_DIRS.neutral'],
+    ['Side Attack', 'ATTACK_DIRS.side'],
+    ['Up Attack', 'ATTACK_DIRS.up'],
+    ['Down Attack', 'ATTACK_DIRS.down'],
+  ];
+  for (const [label, basePath] of dirs) {
+    app.appendChild(makeCategory(label));
+    const sub = document.createElement('div');
+    sub.className = 'sub';
+    sub.appendChild(makeSlider('Active (ticks)', `${basePath}.active`, 1, 12, 1));
+    sub.appendChild(makeSlider('Cooldown (ticks)', `${basePath}.cd`, 1, 20, 1));
+    sub.appendChild(makeSlider('Damage', `${basePath}.dmg`, 0, 30, 1));
+    sub.appendChild(makeSlider('Knockback Base', `${basePath}.kb`, 0, 40, 1));
+    sub.appendChild(makeSlider('Hitbox Width', `${basePath}.w`, 8, 80, 2));
+    sub.appendChild(makeSlider('Hitbox Height', `${basePath}.h`, 8, 60, 2));
+    app.appendChild(sub);
+  }
+
+  /* Special */
+  app.appendChild(makeCategory('Special Attack'));
+  const sp = document.createElement('div'); sp.className = 'sub';
+  sp.appendChild(makeSlider('Active (ticks)', 'SPECIAL.active', 1, 15, 1));
+  sp.appendChild(makeSlider('Cooldown (ticks)', 'SPECIAL.cd', 1, 25, 1));
+  sp.appendChild(makeSlider('Damage', 'SPECIAL.dmg', 0, 40, 1));
+  sp.appendChild(makeSlider('Knockback Base', 'SPECIAL.kb', 0, 50, 1));
+  sp.appendChild(makeSlider('Hitbox Width', 'SPECIAL.w', 16, 100, 2));
+  sp.appendChild(makeSlider('Hitbox Height', 'SPECIAL.h', 16, 80, 2));
+  sp.appendChild(makeSlider('Meter Max', 'SPECIAL.maxMeter', 10, 300, 5));
+  sp.appendChild(makeSlider('Meter Gain Mult', 'SPECIAL.meterGainMult', 0, 3, 0.1));
+  app.appendChild(sp);
+
+  /* Movement */
+  app.appendChild(makeCategory('Movement'));
+  app.appendChild(makeSlider('Dash Speed', 'DASH_SPEED', 0, 30, 1));
+  app.appendChild(makeSlider('Dash Duration (ticks)', 'DASH_DURATION', 1, 20, 1));
+  app.appendChild(makeSlider('Fast Fall Boost', 'FAST_FALL_BOOST', 0, 15, 1));
+  app.appendChild(makeSlider('Max Fall Speed', 'MAX_FALL_SPEED', 5, 30, 1));
+
+  /* Blast Zones */
+  app.appendChild(makeCategory('Blast Zones'));
+  app.appendChild(makeSlider('Left', 'BLAST_ZONE_LEFT', -300, 100, 10));
+  app.appendChild(makeSlider('Right', 'BLAST_ZONE_RIGHT', 700, 1100, 10));
+  app.appendChild(makeSlider('Top', 'BLAST_ZONE_TOP', -300, 0, 10));
+  app.appendChild(makeSlider('Bottom', 'BLAST_ZONE_BOTTOM', 500, 900, 10));
+
+  /* Reset */
+  const reset = document.createElement('button');
+  reset.id = 'resetBtn';
+  reset.textContent = 'Reset to Defaults';
+  reset.addEventListener('click', async () => {
+    location.reload();
+  });
+  app.appendChild(reset);
+}
+
+(async () => {
+  try {
+    cfg = await getConfig();
+    $('#status').textContent = 'Config loaded — sliders update live on release.';
+    render();
+  } catch (e) {
+    $('#status').textContent = 'Failed to load config. Is the server running?';
+  }
+})();
+</script>
+</body>
+</html>

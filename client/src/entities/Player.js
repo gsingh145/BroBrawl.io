@@ -1,4 +1,5 @@
 import Phaser from 'phaser';
+import { CFG } from '../config.js';
 
 export default class Player {
   constructor(scene, x, y, config = {}) {
@@ -29,8 +30,10 @@ export default class Player {
     this.damage = 0;
     this.stocks = 3;
     this.shielding = false;
+    this.specialMeter = 0;
 
     this.attacking = false;
+    this.attackDir = 'neutral';
     this.attackTimer = 0;
     this.attackCooldown = 0;
 
@@ -66,13 +69,14 @@ export default class Player {
     this.stocks = state.stocks ?? 3;
     this.facing = state.facing === -1 ? 'left' : 'right';
     this.shielding = state.shielding || false;
+    this.specialMeter = state.specialMeter || 0;
 
     if (dmgIncrease > 0) {
       this.hitFlashTimer = 100;
     }
 
     if (state.attacking && !this.attacking) {
-      this.startAttack();
+      this.startAttack(state.attackDir || 'neutral');
     }
     if (state.specialAttacking && !this.specialAttacking) {
       this.startSpecialAttack();
@@ -80,10 +84,10 @@ export default class Player {
   }
 
   handleLocalInput(input) {
-    const { attack, specialAttack, shield } = input;
+    const { attack, specialAttack, shield, attackDir } = input;
 
     if (attack && !this.attacking && !this.specialAttacking && this.attackCooldown <= 0) {
-      this.startAttack();
+      this.startAttack(attackDir || 'neutral');
     }
     if (specialAttack && !this.specialAttacking && !this.attacking && this.specialAttackCooldown <= 0) {
       this.startSpecialAttack();
@@ -91,16 +95,18 @@ export default class Player {
     this.shielding = shield;
   }
 
-  startAttack() {
+  startAttack(dir) {
     this.attacking = true;
-    this.attackTimer = 200;
-    this.attackCooldown = 300;
+    this.attackDir = dir || 'neutral';
+    const cfg = CFG.ATTACK_DIRS[this.attackDir] || CFG.ATTACK_DIRS.neutral;
+    this.attackTimer = cfg.active * 50;
+    this.attackCooldown = cfg.cd * 50;
   }
 
   startSpecialAttack() {
     this.specialAttacking = true;
-    this.specialAttackTimer = 300;
-    this.specialAttackCooldown = 600;
+    this.specialAttackTimer = CFG.SPECIAL.active * 50;
+    this.specialAttackCooldown = CFG.SPECIAL.cd * 50;
   }
 
   update(delta) {
@@ -146,6 +152,9 @@ export default class Player {
 
     this.damageText.setPosition(x, y - 40);
     this.damageText.setText(`${Math.floor(this.damage)}%`);
+    const dmgPct = Math.min(1, this.damage / 150);
+    const gb = Math.floor(255 * (1 - dmgPct));
+    this.damageText.setColor(`rgb(255, ${gb}, ${gb})`);
 
     if (this.shielding) {
       this.shieldGfx.clear();
@@ -159,16 +168,32 @@ export default class Player {
     }
 
     if (this.specialAttacking) {
-      const hx = this.facing === 'right' ? x + 12 : x - 68;
+      const hx = this.facing === 'right' ? x + 16 : x - 16 - CFG.SPECIAL.w;
       this.attackGfx.clear();
-      this.attackGfx.fillStyle(0xff6600, 0.8);
-      this.attackGfx.fillRect(hx, y - 18, 56, 36);
+      this.attackGfx.fillStyle(0xff4400, 0.7);
+      this.attackGfx.fillRect(hx, y - CFG.SPECIAL.h / 2, CFG.SPECIAL.w, CFG.SPECIAL.h);
       this.attackGfx.setVisible(true);
     } else if (this.attacking) {
-      const hx = this.facing === 'right' ? x + 16 : x - 56;
+      const dir = this.attackDir || 'neutral';
       this.attackGfx.clear();
-      this.attackGfx.fillStyle(0xffff00, 0.7);
-      this.attackGfx.fillRect(hx, y - 14, 40, 28);
+
+      if (dir === 'up') {
+        this.attackGfx.fillStyle(0xff8800, 0.7);
+        this.attackGfx.fillEllipse(x, y - 36, 40, 28);
+      } else if (dir === 'down') {
+        this.attackGfx.fillStyle(0xff6600, 0.7);
+        const sx = this.facing === 'right' ? x + 12 : x - 48;
+        this.attackGfx.fillTriangle(sx, y + 10, sx + 36, y + 10, sx + 18, y + 36);
+      } else if (dir === 'neutral') {
+        const cx = this.facing === 'right' ? x + 24 : x - 24;
+        this.attackGfx.fillStyle(0xffffcc, 0.8);
+        this.attackGfx.fillCircle(cx, y, 12);
+      } else {
+        const hx = this.facing === 'right' ? x + 16 : x - 56;
+        this.attackGfx.fillStyle(0xffff00, 0.7);
+        this.attackGfx.fillRect(hx, y - 14, 40, 28);
+      }
+
       this.attackGfx.setVisible(true);
     } else {
       this.attackGfx.setVisible(false);

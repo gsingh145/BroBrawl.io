@@ -1,4 +1,5 @@
 const crypto = require("crypto");
+const { SPAWN_POSITIONS } = require("./config");
 
 const DEFAULT_PLAYER_STATE = {
     x: 100,
@@ -10,6 +11,7 @@ const DEFAULT_PLAYER_STATE = {
     facing: 1,
     shielding: false,
     attacking: false,
+    attackDir: 'neutral',
     specialAttacking: false,
     onGround: false,
     canDoubleJump: false,
@@ -19,6 +21,7 @@ const DEFAULT_PLAYER_STATE = {
     dashTimer: 0,
     attackCooldown: 0,
     specialAttackCooldown: 0,
+    specialMeter: 0,
 };
 
 function copyState(player) {
@@ -33,11 +36,13 @@ function copyState(player) {
         facing: player.facing,
         shielding: player.shielding,
         attacking: player.attacking,
+        attackDir: player.attackDir,
         specialAttacking: player.specialAttacking,
         onGround: player.onGround,
         canDoubleJump: player.canDoubleJump,
         dashing: player.dashing,
         dashTimer: player.dashTimer,
+        specialMeter: player.specialMeter,
     };
 }
 
@@ -50,9 +55,12 @@ class PlayerManager {
 
     addPlayer(ws) {
         const id = crypto.randomUUID();
+        const spawn = SPAWN_POSITIONS[this.players.size] || { x: 400, y: 100 };
         const player = {
             id,
             ...DEFAULT_PLAYER_STATE,
+            x: spawn.x,
+            y: spawn.y,
         };
         this.players.set(id, player);
         this.wsToId.set(ws, id);

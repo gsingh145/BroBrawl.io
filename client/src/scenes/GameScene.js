@@ -29,6 +29,7 @@ export default class GameScene extends Phaser.Scene {
 
     this.stockGfx = this.add.graphics();
     this.stockGfx.setDepth(50);
+    this.hudTexts = {};
 
     this.unsubs = [];
     this.unsubs.push(
@@ -49,15 +50,15 @@ export default class GameScene extends Phaser.Scene {
     const gfx = this.add.graphics();
     gfx.fillStyle(0x553c8b);
     gfx.fillRect(150, 474, 500, 40);
-    gfx.fillRect(250 - 90, 340 - 12, 180, 24);
-    gfx.fillRect(550 - 90, 280 - 12, 180, 24);
-    gfx.fillRect(400 - 60, 200 - 12, 120, 24);
+    gfx.fillRect(160, 328, 180, 24);
+    gfx.fillRect(460, 268, 180, 24);
+    gfx.fillRect(340, 188, 120, 24);
 
     gfx.lineStyle(2, 0x8866cc, 0.6);
     gfx.strokeRect(150, 474, 500, 40);
-    gfx.strokeRect(250 - 90, 340 - 12, 180, 24);
-    gfx.strokeRect(550 - 90, 280 - 12, 180, 24);
-    gfx.strokeRect(400 - 60, 200 - 12, 120, 24);
+    gfx.strokeRect(160, 328, 180, 24);
+    gfx.strokeRect(460, 268, 180, 24);
+    gfx.strokeRect(340, 188, 120, 24);
   }
 
   handleState(msg) {
@@ -152,12 +153,16 @@ export default class GameScene extends Phaser.Scene {
 
     const left = this.cursors.left.isDown || this.keys.A.isDown;
     const right = this.cursors.right.isDown || this.keys.D.isDown;
+    const up = this.cursors.up.isDown || this.keys.W.isDown;
+    const down = this.cursors.down.isDown || this.keys.S.isDown;
     const dir = left ? 'left' : right ? 'right' : 'none';
     const jump = Phaser.Input.Keyboard.JustDown(this.cursors.up) ||
                  Phaser.Input.Keyboard.JustDown(this.keys.W);
     const attack = Phaser.Input.Keyboard.JustDown(this.keys.J);
     const specialAttack = Phaser.Input.Keyboard.JustDown(this.keys.K);
     const shield = this.keys.SHIFT.isDown;
+    const fastFallDown = Phaser.Input.Keyboard.JustDown(this.cursors.down) ||
+                         Phaser.Input.Keyboard.JustDown(this.keys.S);
 
     this.connection.send('move', { dir });
 
@@ -179,18 +184,30 @@ export default class GameScene extends Phaser.Scene {
     if (jump) {
       this.connection.send('jump');
     }
-    if (attack) {
-      this.connection.send('attack');
+
+    if (fastFallDown) {
+      this.connection.send('fastFall');
     }
-    if (specialAttack) {
+
+    let attackDir = 'neutral';
+    if (up && !down) attackDir = 'up';
+    else if (down && !up) attackDir = 'down';
+    else if (left || right) attackDir = 'side';
+
+    if (attack) {
+      this.connection.send('attack', { dir: attackDir });
+    }
+
+    if (specialAttack && this.localPlayer.specialMeter >= 100) {
       this.connection.send('specialAttack');
     }
+
     if (shield !== this.prevShielding) {
       this.connection.send(shield ? 'shieldStart' : 'shieldEnd');
       this.prevShielding = shield;
     }
 
-    this.localPlayer.handleLocalInput({ attack, specialAttack, shield });
+    this.localPlayer.handleLocalInput({ attack, specialAttack, shield, attackDir });
 
     for (const player of Object.values(this.playerMap)) {
       player.update(delta);
@@ -208,26 +225,59 @@ export default class GameScene extends Phaser.Scene {
     for (const [id, player] of entries) {
       const isLocal = id === this.connection.playerId;
       const baseX = isLocal ? 60 : 740;
-      const y = 24;
+      const baseY = 24;
       const color = player.playerColor;
 
       this.stockGfx.fillStyle(0xffffff);
-      this.stockGfx.fillRect(baseX - 10, y - 10, 60, 20);
+      this.stockGfx.fillRect(baseX - 10, baseY - 10, 110, 28);
 
       this.stockGfx.fillStyle(0x1a1a2e);
-      this.stockGfx.fillRect(baseX - 9, y - 9, 58, 18);
+      this.stockGfx.fillRect(baseX - 9, baseY - 9, 108, 26);
 
       this.stockGfx.fillStyle(color);
       for (let i = 0; i < 3; i++) {
         const sx = isLocal ? baseX + i * 16 : baseX - (2 - i) * 16;
         if (i < player.stocks) {
-          this.stockGfx.fillCircle(sx, y, 5);
+          this.stockGfx.fillCircle(sx, baseY, 5);
         } else {
           this.stockGfx.fillStyle(0x444444);
-          this.stockGfx.fillCircle(sx, y, 5);
+          this.stockGfx.fillCircle(sx, baseY, 5);
           this.stockGfx.fillStyle(0x1a1a2e);
-          this.stockGfx.fillCircle(sx, y, 2);
+          this.stockGfx.fillCircle(sx, baseY, 2);
+          this.stockGfx.fillStyle(color);
         }
+      }
+
+      const dmgPct = Math.min(1, player.damage / 150);
+      const gb = Math.floor(255 * (1 - dmgPct));
+      const textColor = `rgb(255, ${gb}, ${gb})`;
+      const textX = isLocal ? baseX + 54 : baseX - 54;
+      if (!this.hudTexts[id]) {
+        this.hudTexts[id] = this.add.text(textX, baseY, `${Math.floor(player.damage)}%`, {
+          fontSize: '12px',
+          fontFamily: 'monospace',
+          fontStyle: 'bold',
+          stroke: '#000000',
+          strokeThickness: 2,
+        }).setOrigin(0.5);
+      } else {
+        this.hudTexts[id].setPosition(textX, baseY);
+        this.hudTexts[id].setText(`${Math.floor(player.damage)}%`);
+        this.hudTexts[id].setColor(textColor);
+      }
+
+      const metX = isLocal ? baseX + 52 : baseX - 62;
+      const metPct = Math.min(1, player.specialMeter / 100);
+      this.stockGfx.fillStyle(0x333333);
+      this.stockGfx.fillRect(metX, baseY + 10, 56, 4);
+      this.stockGfx.fillStyle(0x44ccff);
+      this.stockGfx.fillRect(metX, baseY + 10, 56 * metPct, 4);
+    }
+
+    for (const id of Object.keys(this.hudTexts)) {
+      if (!this.playerMap[id]) {
+        this.hudTexts[id]?.destroy();
+        delete this.hudTexts[id];
       }
     }
   }
@@ -236,5 +286,7 @@ export default class GameScene extends Phaser.Scene {
     this.unsubs.forEach(fn => fn());
     Object.values(this.playerMap).forEach(p => p.cleanup?.());
     this.stockGfx?.destroy();
+    Object.values(this.hudTexts).forEach(t => t?.destroy());
+    this.hudTexts = {};
   }
 }
