@@ -1,12 +1,26 @@
 import Phaser from 'phaser';
 import ConnectionManager from '../network/ConnectionManager.js';
+import { CHARACTER_LIST } from '../characters/index.js';
 
 export default class MenuScene extends Phaser.Scene {
   constructor() {
     super('MenuScene');
   }
 
+  preload() {
+    for (const ch of CHARACTER_LIST) {
+      if (!ch.images) continue;
+      for (const [state, path] of Object.entries(ch.images)) {
+        const key = `${ch.id}_${state}`;
+        if (!this.textures.exists(key)) {
+          this.load.image(key, path);
+        }
+      }
+    }
+  }
+
   create() {
+    window.hideLoading && window.hideLoading();
     const { width, height } = this.scale;
 
     this.add.text(width / 2, height * 0.2, 'BroBrawl.io', {

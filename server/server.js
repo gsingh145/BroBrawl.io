@@ -94,12 +94,17 @@ const server = http.createServer((req, res) => {
                 for (const [key, value] of Object.entries(updates)) {
                     if (key in C) {
                         if (typeof value === "object" && value !== null && !Array.isArray(value)) {
-                            Object.assign(C[key], value);
-                        } else {
+                            for (const [k, v] of Object.entries(value)) {
+                                if (C[key] && typeof C[key] === "object" && typeof v === "number" && !isNaN(v)) {
+                                    C[key][k] = v;
+                                }
+                            }
+                        } else if (typeof value === "number" && !isNaN(value)) {
                             C[key] = value;
                         }
                     }
                 }
+                if (C.JUMP_VELOCITY < C.MIN_JUMP_VELOCITY) C.JUMP_VELOCITY = C.MIN_JUMP_VELOCITY;
                 try {
                     fs.writeFileSync(CONFIG_STATE_PATH, JSON.stringify(C, null, 2));
                 } catch (e) {
