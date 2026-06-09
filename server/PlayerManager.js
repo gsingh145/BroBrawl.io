@@ -11,8 +11,9 @@ const BASE_STATE = {
     dashing: false, dashTimer: 0,
     attackCooldown: 0, specialAttackCooldown: 0,
     specialMeter: 0, shieldHealth: 100,
-    fastFalling: false, specialMeterUsed: 0,
-    specialAttackDir: 'neutral', character: null,
+    specialMeterUsed: 0,
+    specialAttackDir: 'neutral', platformDropTimer: 0,
+    character: null,
     characterReady: false,
 };
 
@@ -36,7 +37,6 @@ function copyState(player) {
         dashTimer: player.dashTimer,
         specialMeter: player.specialMeter,
         shieldHealth: player.shieldHealth,
-        fastFalling: player.fastFalling,
         specialMeterUsed: player.specialMeterUsed,
         specialAttackDir: player.specialAttackDir,
         character: player.character,

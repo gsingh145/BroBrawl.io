@@ -153,15 +153,17 @@ function handleMessage(ws, raw) {
             }
             break;
         }
-        case "fastFallStart": {
+        case "fastFall": {
             if (!player.onGround) {
-                player.fastFalling = true;
                 player.vy = Math.min(C.MAX_FALL_SPEED, player.vy + C.FAST_FALL_BOOST);
             }
             break;
         }
-        case "fastFallEnd": {
-            player.fastFalling = false;
+        case "platformDrop": {
+            if (player.onGround) {
+                player.platformDropTimer = 12;
+                player.vy = 3;
+            }
             break;
         }
         case "attack": {
@@ -244,8 +246,8 @@ function die(p) {
         p.dashTimer = 0;
         p.specialMeter = 0;
         p.shieldHealth = C.SHIELD.maxHealth;
-        p.fastFalling = false;
         p.specialMeterUsed = 0;
+        p.platformDropTimer = 0;
     }
 }
 
@@ -269,9 +271,7 @@ function updatePlayer(p) {
         p.shieldHealth = Math.max(0, p.shieldHealth - C.SHIELD.drainRate);
     }
 
-    if (p.fastFalling) {
-        p.vy = Math.min(C.MAX_FALL_SPEED, p.vy + C.FAST_FALL_BOOST);
-    }
+    if (p.platformDropTimer > 0) p.platformDropTimer--;
 
     const stats = getCharStats(p);
     const prevY = p.y;
@@ -288,7 +288,7 @@ function updatePlayer(p) {
     const prevBottom = prevY + C.PLAYER_H / 2;
 
     for (const plat of C.PLATFORMS) {
-        if (p.fastFalling && plat.surfaceY !== C.PLATFORMS[0].surfaceY) continue;
+        if (p.platformDropTimer > 0 && plat.surfaceY !== C.PLATFORMS[0].surfaceY) continue;
         if (p.vy >= 0 && prevBottom <= plat.surfaceY && playerBottom >= plat.surfaceY
             && playerRight > plat.left && playerLeft < plat.right) {
             p.y = plat.surfaceY - C.PLAYER_H / 2;

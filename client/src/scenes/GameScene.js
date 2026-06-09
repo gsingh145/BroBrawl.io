@@ -24,7 +24,6 @@ export default class GameScene extends Phaser.Scene {
     this.keys = this.input.keyboard.addKeys('W,A,S,D,J,K,SHIFT');
 
     this.prevShielding = false;
-    this.prevFastFall = false;
 
     this.winnerId = null;
 
@@ -225,14 +224,18 @@ export default class GameScene extends Phaser.Scene {
       this.connection.send('jump');
     }
 
-    const fastFallHeld = this.keys.S.isDown || this.cursors.down.isDown;
-    if (fastFallHeld && !this.prevFastFall) {
-      this.connection.send('fastFallStart');
+    const sDown = Phaser.Input.Keyboard.JustDown(this.keys.S) || Phaser.Input.Keyboard.JustDown(this.cursors.down);
+    if (sDown) {
+      if (this.localPlayer?.onGround) {
+        if (this.lastTapKey === 'down' && time - this.lastTapTime < this.dashWindow) {
+          this.connection.send('platformDrop');
+        }
+        this.lastTapKey = 'down';
+        this.lastTapTime = time;
+      } else {
+        this.connection.send('fastFall');
+      }
     }
-    if (!fastFallHeld && this.prevFastFall) {
-      this.connection.send('fastFallEnd');
-    }
-    this.prevFastFall = fastFallHeld;
 
     let attackDir = 'neutral';
     if (up && !down) attackDir = 'up';
