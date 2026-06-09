@@ -143,10 +143,22 @@ export default class Player {
     this.shielding = shield;
   }
 
+  getAttackCfg(dir) {
+    const atk = this.charConfig.attacks;
+    const dirCfg = atk && atk[dir];
+    return dirCfg || { active: 3, cd: 5, dmg: 3, kb: 5, w: 20, h: 20 };
+  }
+
+  getSpecialCfg(dir) {
+    const sp = this.charConfig.specials;
+    const dirCfg = sp && sp[dir];
+    return dirCfg || { active: 4, cd: 10, dmg: 10, kb: 16, w: 56, h: 36 };
+  }
+
   startAttack(dir) {
     this.attacking = true;
     this.attackDir = dir || 'neutral';
-    const cfg = this.charConfig.attacks[this.attackDir] || this.charConfig.attacks.neutral;
+    const cfg = this.getAttackCfg(this.attackDir);
     this.attackTimer = cfg.active * 50;
     this.attackCooldown = cfg.cd * 50;
   }
@@ -154,7 +166,7 @@ export default class Player {
   startSpecialAttack(dir) {
     this.specialAttacking = true;
     this.specialAttackDir = dir || 'neutral';
-    const cfg = this.charConfig.specials[this.specialAttackDir] || this.charConfig.specials.neutral;
+    const cfg = this.getSpecialCfg(this.specialAttackDir);
     this.specialAttackTimer = cfg.active * 50;
     this.specialAttackCooldown = cfg.cd * 50;
   }
@@ -270,14 +282,14 @@ export default class Player {
 
     if (this.specialAttacking) {
       const dir = this.specialAttackDir || 'neutral';
-      const cfg = this.charConfig.specials[dir] || this.charConfig.specials.neutral;
+      const cfg = this.getSpecialCfg(dir);
       this.attackGfx.clear();
       const fn = SPECIAL_FX[cls] || SPECIAL_FX.sword;
       fn(this.attackGfx, x, y, cfg, facing, color);
       this.attackGfx.setVisible(true);
     } else if (this.attacking) {
       const dir = this.attackDir || 'neutral';
-      const cfg = this.charConfig.attacks[dir] || this.charConfig.attacks.neutral;
+      const cfg = this.getAttackCfg(dir);
       this.attackGfx.clear();
       const dirFx = ATK_FX[cls];
       const fn = dirFx?.[dir] || ATK_FX.sword.side;

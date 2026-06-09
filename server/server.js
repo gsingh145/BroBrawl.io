@@ -19,6 +19,50 @@ function deepMerge(target, source) {
     }
 }
 
+function serializeClasses(classes) {
+    function serializeAttacks(attacks) {
+        const dirs = ["neutral", "side", "up", "down"];
+        const lines = dirs.map(dir => {
+            const a = attacks[dir];
+            if (!a) return `      ${dir}: ATK({})`;
+            const entries = Object.entries(a).filter(([, v]) => v !== undefined && v !== false);
+            const inner = entries.map(([k, v]) => {
+                if (typeof v === "string") return `${k}: "${v}"`;
+                return `${k}: ${v}`;
+            }).join(", ");
+            return `      ${dir}: ATK({ ${inner} })`;
+        });
+        return "{\n" + lines.join(",\n") + "\n      }";
+    }
+
+    const classNames = Object.keys(classes);
+    const classEntries = classNames.map(name => {
+        const cls = classes[name];
+        const fields = ["moveSpeed", "jumpVelocity", "weight", "dmgDealtMult", "dmgTakenMult", "stocks", "jumpCount"];
+        const statLine = fields.map(f => `${f}: ${cls[f]}`).join(", ");
+        const attacks = serializeAttacks(cls.attacks);
+        const specials = serializeAttacks(cls.specials);
+        return `  ${name}: {\n    ${statLine},\n    attacks: ${attacks},\n    specials: ${specials},\n  }`;
+    });
+
+    return `const ATK = (o) => ({ active: 3, cd: 5, dmg: 3, kb: 5, w: 20, h: 20, ...o });
+
+const CLASSES = {
+${classEntries.join(",\n")}
+};
+
+const CHARACTERS = {
+  brawn_boy: { id: 'brawn_boy', ...CLASSES.heavy },
+  wizard:    { id: 'wizard',    ...CLASSES.zoner },
+  shadow:    { id: 'shadow',    ...CLASSES.combo },
+  samurai:   { id: 'samurai',   ...CLASSES.sword },
+};
+
+module.exports = CHARACTERS;
+module.exports.CLASSES = CLASSES;
+`;
+}
+
 try {
     if (fs.existsSync(CONFIG_STATE_PATH)) {
         const saved = JSON.parse(fs.readFileSync(CONFIG_STATE_PATH, "utf-8"));
@@ -27,17 +71,6 @@ try {
     }
 } catch (e) {
     console.warn("Could not load config-state.json, using defaults:", e.message);
-}
-
-const CHAR_STATE_PATH = path.join(__dirname, "characters-state.json");
-try {
-    if (fs.existsSync(CHAR_STATE_PATH)) {
-        const saved = JSON.parse(fs.readFileSync(CHAR_STATE_PATH, "utf-8"));
-        deepMerge(CLASSES, saved);
-        console.log("Loaded saved character config from characters-state.json");
-    }
-} catch (e) {
-    console.warn("Could not load characters-state.json:", e.message);
 }
 
 const PORT = process.env.PORT || 8080;
@@ -91,10 +124,17 @@ const server = http.createServer((req, res) => {
             try {
                 const updates = JSON.parse(body);
                 deepMerge(CLASSES, updates);
+
+                const CHAR_SRC_PATH = path.join(__dirname, "characters.js");
                 try {
-                    fs.writeFileSync(CHAR_STATE_PATH, JSON.stringify(CLASSES, null, 2));
+                    if (fs.existsSync(CHAR_SRC_PATH)) {
+                        fs.copyFileSync(CHAR_SRC_PATH, CHAR_SRC_PATH + ".bak");
+                    }
+                    const src = serializeClasses(CLASSES);
+                    fs.writeFileSync(CHAR_SRC_PATH, src);
+                    console.log("Saved character config to characters.js (backup at characters.js.bak)");
                 } catch (e) {
-                    console.warn("Could not save characters-state.json:", e.message);
+                    console.warn("Could not save characters.js:", e.message);
                 }
                 return json({ ok: true });
             } catch {

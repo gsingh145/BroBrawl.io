@@ -4,7 +4,7 @@ const CLASSES = {
   heavy: {
     moveSpeed: 3, jumpVelocity: -9, weight: 0.6, dmgDealtMult: 1.4, dmgTakenMult: 0.8, stocks: 4, jumpCount: 1,
     attacks: {
-      neutral: ATK({ active: 2, cd: 10, dmg: 10, kb: 12, w: 26, h: 24 }),
+      neutral: ATK({ active: 0, cd: 10, dmg: 10, kb: 12, w: 26, h: 24 }),
       side: ATK({ active: 6, cd: 14, dmg: 14, kb: 18, w: 38, h: 30 }),
       up: ATK({ active: 7, cd: 12, dmg: 10, kb: 14, w: 32, h: 32 }),
       down: ATK({ active: 5, cd: 10, dmg: 12, kb: 10, w: 36, h: 20 })

@@ -20,6 +20,11 @@ const config = {
     },
   },
   scene: [MenuScene, CharacterSelectScene, GameScene],
+  callbacks: {
+    postBoot: (game) => {
+      setTimeout(() => window.hideLoading && window.hideLoading(), 100);
+    },
+  },
 };
 
 new Phaser.Game(config);

@@ -112,6 +112,13 @@ export default class CharacterSelectScene extends Phaser.Scene {
       })
     );
 
+    this.unsubs.push(
+      this.connection.on('close', () => {
+        this.statusText.setText('Connection lost. Refresh to retry.');
+        this.statusText.setColor('#ff4444');
+      })
+    );
+
     this.events.once('shutdown', this.cleanup, this);
   }
 

@@ -1,14 +1,18 @@
 import Phaser from 'phaser';
 import Player from '../entities/Player.js';
 
+const LOCAL_MOVE_SPEED = 4.5;
+
 export default class GameScene extends Phaser.Scene {
   constructor() {
     super('GameScene');
   }
 
   create(data) {
-    this.connection = data.connection;
-    this.myCharacter = data.character || 'brawn_boy';
+    try {
+      this.errorText = null;
+      this.connection = data.connection;
+      this.myCharacter = data.character || 'brawn_boy';
 
     this.createBackground();
     this.createPlatforms();
@@ -48,6 +52,13 @@ export default class GameScene extends Phaser.Scene {
     this.lastTapKey = null;
     this.lastTapTime = 0;
     this.dashWindow = 300;
+    } catch (e) {
+      console.error('GameScene.create() error:', e);
+      this.cameras.main.setBackgroundColor('#ff0000');
+      this.errorText = this.add.text(400, 300, `Error: ${e.message}\nCheck console`, {
+        fontSize: '18px', color: '#ffffff', fontFamily: 'monospace', align: 'center',
+      }).setOrigin(0.5).setDepth(200);
+    }
   }
 
   createBackground() {
@@ -283,7 +294,7 @@ export default class GameScene extends Phaser.Scene {
     if (up && !down) specialDir = 'up';
     else if (down && !up) specialDir = 'down';
     else if (left || right) specialDir = 'side';
-    const speed = dir === 'left' ? -4.5 : dir === 'right' ? 4.5 : 0;
+    const speed = dir === 'left' ? -LOCAL_MOVE_SPEED : dir === 'right' ? LOCAL_MOVE_SPEED : 0;
     this.localPlayer.handleLocalInput({ attack, specialAttack, shield, attackDir, specialDir, vx: speed });
 
     for (const player of Object.values(this.playerMap)) {
