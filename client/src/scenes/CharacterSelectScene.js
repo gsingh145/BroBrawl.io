@@ -6,6 +6,18 @@ export default class CharacterSelectScene extends Phaser.Scene {
     super('CharacterSelectScene');
   }
 
+  preload() {
+    CHARACTER_LIST.forEach(ch => {
+      if (!ch.images) return;
+      for (const [state, path] of Object.entries(ch.images)) {
+        const key = `${ch.id}_${state}`;
+        if (!this.textures.exists(key)) {
+          this.load.image(key, path);
+        }
+      }
+    });
+  }
+
   create(data) {
     this.connection = data.connection;
     this.selected = null;

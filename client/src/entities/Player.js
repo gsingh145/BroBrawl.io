@@ -13,7 +13,7 @@ export default class Player {
     this.isRemote = isRemote;
     this.playerColor = playerColor || ch.color;
 
-    this.sprite = scene.add.sprite(x, y, 'player_idle');
+    this.sprite = scene.add.sprite(x, y, this.texId('idle'));
     this.sprite.setTint(this.playerColor);
 
     this.facing = 'right';
@@ -57,69 +57,42 @@ export default class Player {
     this.shieldGfx.setVisible(false);
   }
 
-  generateTextures(scene) {
-    if (scene.textures.exists('player_idle')) return;
-    const W = 32, H = 48;
+  texId(state) {
+    return `${this.charConfig.id}_${state}`;
+  }
 
-    const make = (key, draw) => {
+  static defaultTex(id, scene) {
+    const W = 32, H = 48;
+    const make = (state, draw) => {
       const gfx = scene.make.graphics({ add: false });
       gfx.fillStyle(0xffffff);
       draw(gfx);
-      gfx.generateTexture(key, W, H);
+      gfx.generateTexture(`${id}_${state}`, W, H);
       gfx.destroy();
     };
+    make('idle', (g) => { g.fillCircle(16, 10, 7); g.fillRect(10, 18, 12, 14); g.fillRect(6, 20, 4, 4); g.fillRect(22, 20, 4, 4); g.fillRect(12, 33, 3, 11); g.fillRect(17, 33, 3, 11); g.fillTriangle(24, 20, 32, 24, 24, 28); });
+    make('walk1', (g) => { g.fillCircle(16, 10, 7); g.fillRect(10, 18, 12, 14); g.fillRect(5, 21, 4, 3); g.fillRect(23, 19, 4, 6); g.fillRect(10, 33, 3, 13); g.fillRect(18, 33, 3, 9); g.fillTriangle(25, 19, 33, 23, 25, 27); });
+    make('walk2', (g) => { g.fillCircle(16, 10, 7); g.fillRect(10, 18, 12, 14); g.fillRect(5, 19, 4, 6); g.fillRect(23, 21, 4, 3); g.fillRect(11, 33, 3, 9); g.fillRect(19, 33, 3, 13); g.fillTriangle(25, 19, 33, 23, 25, 27); });
+    make('jump', (g) => { g.fillCircle(16, 10, 7); g.fillRect(10, 18, 12, 12); g.fillRect(5, 13, 4, 6); g.fillRect(23, 13, 4, 6); g.fillRect(12, 31, 3, 7); g.fillRect(17, 31, 3, 7); g.fillTriangle(25, 19, 33, 23, 25, 27); });
+    make('shield', (g) => { g.fillCircle(16, 10, 7); g.fillRect(10, 18, 12, 14); g.fillRect(6, 20, 4, 4); g.fillRect(22, 20, 4, 4); g.fillRect(12, 33, 3, 11); g.fillRect(17, 33, 3, 11); g.fillTriangle(24, 20, 32, 24, 24, 28); g.fillStyle(0xffffff, 0.3); g.fillEllipse(16, 24, 30, 40); });
+  }
 
-    make('player_idle', (g) => {
-      g.fillCircle(16, 10, 7);
-      g.fillRect(10, 18, 12, 14);
-      g.fillRect(6, 20, 4, 4);
-      g.fillRect(22, 20, 4, 4);
-      g.fillRect(12, 33, 3, 11);
-      g.fillRect(17, 33, 3, 11);
-      g.fillTriangle(24, 20, 32, 24, 24, 28);
-    });
-
-    make('player_walk1', (g) => {
-      g.fillCircle(16, 10, 7);
-      g.fillRect(10, 18, 12, 14);
-      g.fillRect(5, 21, 4, 3);
-      g.fillRect(23, 19, 4, 6);
-      g.fillRect(10, 33, 3, 13);
-      g.fillRect(18, 33, 3, 9);
-      g.fillTriangle(25, 19, 33, 23, 25, 27);
-    });
-
-    make('player_walk2', (g) => {
-      g.fillCircle(16, 10, 7);
-      g.fillRect(10, 18, 12, 14);
-      g.fillRect(5, 19, 4, 6);
-      g.fillRect(23, 21, 4, 3);
-      g.fillRect(11, 33, 3, 9);
-      g.fillRect(19, 33, 3, 13);
-      g.fillTriangle(25, 19, 33, 23, 25, 27);
-    });
-
-    make('player_jump', (g) => {
-      g.fillCircle(16, 10, 7);
-      g.fillRect(10, 18, 12, 12);
-      g.fillRect(5, 13, 4, 6);
-      g.fillRect(23, 13, 4, 6);
-      g.fillRect(12, 31, 3, 7);
-      g.fillRect(17, 31, 3, 7);
-      g.fillTriangle(25, 19, 33, 23, 25, 27);
-    });
-
-    make('player_shield', (g) => {
-      g.fillCircle(16, 10, 7);
-      g.fillRect(10, 18, 12, 14);
-      g.fillRect(6, 20, 4, 4);
-      g.fillRect(22, 20, 4, 4);
-      g.fillRect(12, 33, 3, 11);
-      g.fillRect(17, 33, 3, 11);
-      g.fillTriangle(24, 20, 32, 24, 24, 28);
-      g.fillStyle(0xffffff, 0.3);
-      g.fillEllipse(16, 24, 30, 40);
-    });
+  generateTextures(scene) {
+    const id = this.charConfig.id;
+    if (scene.textures.exists(this.texId('idle'))) return;
+    const tex = this.charConfig.textures;
+    if (tex) {
+      const W = 32, H = 48;
+      for (const [state, drawFn] of Object.entries(tex)) {
+        const gfx = scene.make.graphics({ add: false });
+        gfx.fillStyle(0xffffff);
+        drawFn(gfx);
+        gfx.generateTexture(`${id}_${state}`, W, H);
+        gfx.destroy();
+      }
+    } else {
+      Player.defaultTex(id, scene);
+    }
   }
 
   get x() { return this.sprite.x; }
@@ -234,15 +207,16 @@ export default class Player {
 
     this.sprite.setFlipX(this.facing === 'left');
 
+    const tid = (s) => this.texId(s);
     if (this.attacking || this.specialAttacking) {
-      this.sprite.setTexture('player_idle');
+      this.sprite.setTexture(tid('idle'));
       this.sprite.y = y;
       this.sprite.setScale(1, 1);
       return;
     }
 
     if (this.shielding) {
-      this.sprite.setTexture('player_shield');
+      this.sprite.setTexture(tid('shield'));
       this.sprite.y = y;
       this.sprite.setScale(1, 1);
       return;
@@ -250,11 +224,11 @@ export default class Player {
 
     const moving = Math.abs(this.lastVx) > 0.5;
     if (this.onGround) {
-      this.sprite.setTexture(moving ? (this.walkFrame === 0 ? 'player_walk1' : 'player_walk2') : 'player_idle');
+      this.sprite.setTexture(moving ? (this.walkFrame === 0 ? tid('walk1') : tid('walk2')) : tid('idle'));
       this.sprite.y = y + this.bobOffset;
       this.sprite.setScale(1, 1);
     } else {
-      this.sprite.setTexture('player_jump');
+      this.sprite.setTexture(tid('jump'));
       if (this.lastVy >= 0) this.sprite.setScale(1.05, 0.95);
       else this.sprite.setScale(1, 1);
       this.sprite.y = y;
