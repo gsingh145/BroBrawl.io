@@ -18,6 +18,7 @@ export default class GameScene extends Phaser.Scene {
       isRemote: false,
       character: this.myCharacter,
     });
+    this.localPlayerApplied = false;
     this.playerMap[this.connection.playerId] = this.localPlayer;
 
     this.cursors = this.input.keyboard.createCursorKeys();
@@ -30,6 +31,9 @@ export default class GameScene extends Phaser.Scene {
     this.stockGfx = this.add.graphics();
     this.stockGfx.setDepth(50);
     this.hudTexts = {};
+
+    this.projectileGfx = this.add.graphics();
+    this.projectileGfx.setDepth(30);
 
     this.unsubs = [];
     this.unsubs.push(
@@ -113,20 +117,26 @@ export default class GameScene extends Phaser.Scene {
     }
 
     for (const state of msg.players) {
+      let player;
       if (state.id === this.connection.playerId) {
-        this.localPlayer.applyState(state);
+        player = this.localPlayer;
       } else {
-        let player = this.playerMap[state.id];
+        player = this.playerMap[state.id];
         if (!player) {
           const charId = state.character || 'blade';
           player = new Player(this, state.x, state.y, {
             isRemote: true,
             character: charId,
+            playerColor: state.playerColor,
           });
           this.playerMap[state.id] = player;
         }
-        player.applyState(state);
       }
+      player.applyState(state);
+    }
+
+    if (msg.projectiles) {
+      this.renderProjectiles(msg.projectiles);
     }
 
     if (!this.winnerId) {
@@ -174,6 +184,16 @@ export default class GameScene extends Phaser.Scene {
       this.connection.disconnect();
       this.scene.start('MenuScene');
     });
+  }
+
+  renderProjectiles(projList) {
+    this.projectileGfx.clear();
+    for (const p of projList) {
+      this.projectileGfx.fillStyle(0xff4444, 0.8);
+      this.projectileGfx.fillRect(p.x - p.w / 2, p.y - p.h / 2, p.w, p.h);
+      this.projectileGfx.fillStyle(0xffffff, 0.4);
+      this.projectileGfx.fillRect(p.x - p.w / 4, p.y - p.h / 4, p.w / 2, p.h / 2);
+    }
   }
 
   handlePlayerLeft(msg) {
@@ -279,23 +299,29 @@ export default class GameScene extends Phaser.Scene {
     const entries = Object.entries(this.playerMap);
     if (entries.length === 0) return;
 
-    for (const [id, player] of entries) {
-      const isLocal = id === this.connection.playerId;
-      const baseX = isLocal ? 60 : 740;
+    const w = this.scale.width;
+    const count = entries.length;
+    const panelW = 130;
+    const spacing = Math.min(panelW + 40, (w - 20) / count);
+    const startX = (w - spacing * (count - 1)) / 2;
+
+    for (let i = 0; i < count; i++) {
+      const [id, player] = entries[i];
+      const baseX = startX + i * spacing;
       const baseY = 24;
       const color = player.playerColor;
 
-      const panelLeft = isLocal ? baseX - 10 : baseX - 100;
+      const panelLeft = baseX - panelW / 2;
       this.stockGfx.fillStyle(0xffffff);
-      this.stockGfx.fillRect(panelLeft, baseY - 10, 110, 28);
+      this.stockGfx.fillRect(panelLeft, baseY - 10, panelW, 28);
 
       this.stockGfx.fillStyle(0x1a1a2e);
-      this.stockGfx.fillRect(panelLeft + 1, baseY - 9, 108, 26);
+      this.stockGfx.fillRect(panelLeft + 1, baseY - 9, panelW - 2, 26);
 
       this.stockGfx.fillStyle(color);
-      for (let i = 0; i < 3; i++) {
-        const sx = isLocal ? baseX + i * 16 : baseX - (2 - i) * 16;
-        if (i < player.stocks) {
+      for (let s = 0; s < 3; s++) {
+        const sx = baseX - 20 + s * 16;
+        if (s < player.stocks) {
           this.stockGfx.fillCircle(sx, baseY, 5);
         } else {
           this.stockGfx.fillStyle(0x444444);
@@ -309,7 +335,7 @@ export default class GameScene extends Phaser.Scene {
       const dmgPct = Math.min(1, player.damage / 150);
       const gb = Math.floor(255 * (1 - dmgPct));
       const textColor = `rgb(255, ${gb}, ${gb})`;
-      const textX = isLocal ? baseX + 54 : baseX - 54;
+      const textX = baseX + 30;
       if (!this.hudTexts[id]) {
         this.hudTexts[id] = this.add.text(textX, baseY, `${Math.floor(player.damage)}%`, {
           fontSize: '12px',
@@ -324,7 +350,7 @@ export default class GameScene extends Phaser.Scene {
         this.hudTexts[id].setColor(textColor);
       }
 
-      const metX = isLocal ? baseX + 52 : baseX - 62;
+      const metX = baseX + 26;
       const metPct = Math.min(1, player.specialMeter / 100);
       this.stockGfx.fillStyle(0x333333);
       this.stockGfx.fillRect(metX, baseY + 10, 56, 4);
@@ -344,6 +370,7 @@ export default class GameScene extends Phaser.Scene {
     this.unsubs.forEach(fn => fn());
     Object.values(this.playerMap).forEach(p => p.cleanup?.());
     this.stockGfx?.destroy();
+    this.projectileGfx?.destroy();
     Object.values(this.hudTexts).forEach(t => t?.destroy());
     this.hudTexts = {};
   }

@@ -3,6 +3,11 @@ const { SPAWN_POSITIONS } = require("./config");
 const CHARACTERS = require("./characters");
 const DEFAULT_CHAR = CHARACTERS.blade || Object.values(CHARACTERS)[0];
 
+const PLAYER_COLORS = [
+    0x4488ff, 0xff4444, 0x44ff44, 0xffff44,
+    0xff44ff, 0x44ffff, 0xff8800, 0x8844ff,
+];
+
 const BASE_STATE = {
     vx: 0, vy: 0, damage: 0, stocks: 3,
     facing: 1, shielding: false, attacking: false,
@@ -16,6 +21,7 @@ const BASE_STATE = {
     specialAttackDir: 'neutral', platformDropTimer: 0,
     character: null,
     characterReady: false,
+    playerColor: 0x4488ff,
 };
 
 function copyState(player) {
@@ -41,6 +47,7 @@ function copyState(player) {
         specialMeterUsed: player.specialMeterUsed,
         specialAttackDir: player.specialAttackDir,
         character: player.character,
+        playerColor: player.playerColor,
     };
 }
 
@@ -54,12 +61,14 @@ class PlayerManager {
     addPlayer(ws) {
         const id = crypto.randomUUID();
         const spawn = SPAWN_POSITIONS[this.players.size] || { x: 400, y: 100 };
+        const colorIdx = this.players.size % PLAYER_COLORS.length;
         const player = {
             id,
             ...BASE_STATE,
             x: spawn.x,
             y: spawn.y,
             stocks: 3,
+            playerColor: PLAYER_COLORS[colorIdx],
         };
         this.players.set(id, player);
         this.wsToId.set(ws, id);

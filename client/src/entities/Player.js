@@ -1,10 +1,9 @@
 import Phaser from 'phaser';
-import { CFG } from '../config.js';
 import { CHARACTERS } from '../characters/index.js';
 
 export default class Player {
   constructor(scene, x, y, config = {}) {
-    const { isRemote = false, character = 'blade' } = config;
+    const { isRemote = false, character = 'blade', playerColor } = config;
     const ch = CHARACTERS[character] || CHARACTERS.blade;
 
     this.charConfig = ch;
@@ -12,10 +11,10 @@ export default class Player {
 
     this.scene = scene;
     this.isRemote = isRemote;
-    this.playerColor = ch.color;
+    this.playerColor = playerColor || ch.color;
 
     this.sprite = scene.add.sprite(x, y, 'player_idle');
-    this.sprite.setTint(ch.tint);
+    this.sprite.setTint(this.playerColor);
 
     this.facing = 'right';
     this.damage = 0;
@@ -139,6 +138,9 @@ export default class Player {
     this.lastVx = state.vx || 0;
     this.lastVy = state.vy || 0;
     this.onGround = state.onGround || false;
+    if (state.playerColor) {
+      this.playerColor = state.playerColor;
+    }
 
     if (dmgIncrease > 0) {
       this.hitFlashTimer = 100;
@@ -168,7 +170,7 @@ export default class Player {
   startAttack(dir) {
     this.attacking = true;
     this.attackDir = dir || 'neutral';
-    const cfg = CFG.ATTACK_DIRS[this.attackDir] || CFG.ATTACK_DIRS.neutral;
+    const cfg = this.charConfig.attacks[this.attackDir] || this.charConfig.attacks.neutral;
     this.attackTimer = cfg.active * 50;
     this.attackCooldown = cfg.cd * 50;
   }
@@ -176,7 +178,7 @@ export default class Player {
   startSpecialAttack(dir) {
     this.specialAttacking = true;
     this.specialAttackDir = dir || 'neutral';
-    const cfg = CFG.SPECIAL_DIRS[this.specialAttackDir] || CFG.SPECIAL_DIRS.neutral;
+    const cfg = this.charConfig.specials[this.specialAttackDir] || this.charConfig.specials.neutral;
     this.specialAttackTimer = cfg.active * 50;
     this.specialAttackCooldown = cfg.cd * 50;
   }
@@ -282,9 +284,13 @@ export default class Player {
       this.shieldGfx.setVisible(false);
     }
 
+    const col = this.playerColor || 0xffffff;
+    const bright = Phaser.Display.Color.IntegerToColor(col);
+    const r = bright.red, g = bright.green, b = bright.blue;
+
     if (this.specialAttacking) {
       const dir = this.specialAttackDir || 'neutral';
-      const cfg = CFG.SPECIAL_DIRS[dir] || CFG.SPECIAL_DIRS.neutral;
+      const cfg = this.charConfig.specials[dir] || this.charConfig.specials.neutral;
       this.attackGfx.clear();
       this.attackGfx.fillStyle(0xff4400, 0.7);
       if (dir === 'up') {
@@ -301,23 +307,24 @@ export default class Player {
       this.attackGfx.setVisible(true);
     } else if (this.attacking) {
       const dir = this.attackDir || 'neutral';
+      const cfg = this.charConfig.attacks[dir] || this.charConfig.attacks.neutral;
       this.attackGfx.clear();
 
       if (dir === 'up') {
-        this.attackGfx.fillStyle(0xff8800, 0.7);
-        this.attackGfx.fillEllipse(x, y - 36, 40, 28);
+        this.attackGfx.fillStyle(Phaser.Display.Color.GetColor(r, g, b), 0.6);
+        this.attackGfx.fillEllipse(x, y - 36, cfg.w * 1.5, cfg.h);
       } else if (dir === 'down') {
-        this.attackGfx.fillStyle(0xff6600, 0.7);
-        const sx = this.facing === 'right' ? x + 12 : x - 48;
-        this.attackGfx.fillTriangle(sx, y + 10, sx + 36, y + 10, sx + 18, y + 36);
+        this.attackGfx.fillStyle(Phaser.Display.Color.GetColor(r, g, b), 0.6);
+        const sx = this.facing === 'right' ? x + 12 : x - 12 - cfg.w;
+        this.attackGfx.fillTriangle(sx, y + 10, sx + cfg.w, y + 10, sx + cfg.w / 2, y + 10 + cfg.h);
       } else if (dir === 'neutral') {
         const cx = this.facing === 'right' ? x + 24 : x - 24;
-        this.attackGfx.fillStyle(0xffffcc, 0.8);
-        this.attackGfx.fillCircle(cx, y, 12);
+        this.attackGfx.fillStyle(Phaser.Display.Color.GetColor(r, g, b), 0.6);
+        this.attackGfx.fillCircle(cx, y, cfg.w / 2);
       } else {
-        const hx = this.facing === 'right' ? x + 16 : x - 56;
-        this.attackGfx.fillStyle(0xffff00, 0.7);
-        this.attackGfx.fillRect(hx, y - 14, 40, 28);
+        const hx = this.facing === 'right' ? x + 16 : x - 16 - cfg.w;
+        this.attackGfx.fillStyle(Phaser.Display.Color.GetColor(r, g, b), 0.6);
+        this.attackGfx.fillRect(hx, y - cfg.h / 2, cfg.w, cfg.h);
       }
 
       this.attackGfx.setVisible(true);

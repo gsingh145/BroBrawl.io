@@ -123,37 +123,21 @@ function render() {
   app.appendChild(makeSlider('Move Speed', 'MOVE_SPEED', 0, 15, 0.5, 4));
   app.appendChild(makeSlider('Jump Velocity', 'JUMP_VELOCITY', -20, 0, 0.5, -10));
 
-  /* Attacks */
-  const dirs = [
-    ['Neutral Attack', 'ATTACK_DIRS.neutral'],
-    ['Side Attack', 'ATTACK_DIRS.side'],
-    ['Up Attack', 'ATTACK_DIRS.up'],
-    ['Down Attack', 'ATTACK_DIRS.down'],
-  ];
-  for (const [label, basePath] of dirs) {
-    app.appendChild(makeCategory(label));
-    const sub = document.createElement('div');
-    sub.className = 'sub';
-    sub.appendChild(makeSlider('Active (ticks)', `${basePath}.active`, 1, 12, 1));
-    sub.appendChild(makeSlider('Cooldown (ticks)', `${basePath}.cd`, 1, 20, 1));
-    sub.appendChild(makeSlider('Damage', `${basePath}.dmg`, 0, 30, 1));
-    sub.appendChild(makeSlider('Knockback Base', `${basePath}.kb`, 0, 40, 1));
-    sub.appendChild(makeSlider('Hitbox Width', `${basePath}.w`, 8, 80, 2));
-    sub.appendChild(makeSlider('Hitbox Height', `${basePath}.h`, 8, 60, 2));
-    app.appendChild(sub);
-  }
+  /* Shield */
+  app.appendChild(makeCategory('Shield'));
+  const sh = document.createElement('div'); sh.className = 'sub';
+  sh.appendChild(makeSlider('Max Health', 'SHIELD.maxHealth', 10, 300, 5));
+  sh.appendChild(makeSlider('Base Reduction', 'SHIELD.baseReduction', 0, 1, 0.05));
+  sh.appendChild(makeSlider('Drain Rate (per tick)', 'SHIELD.drainRate', 0, 5, 0.5));
+  app.appendChild(sh);
 
-  /* Special */
-  app.appendChild(makeCategory('Special Attack'));
+  /* Special Meter */
+  app.appendChild(makeCategory('Special Meter'));
   const sp = document.createElement('div'); sp.className = 'sub';
-  sp.appendChild(makeSlider('Active (ticks)', 'SPECIAL.active', 1, 15, 1));
-  sp.appendChild(makeSlider('Cooldown (ticks)', 'SPECIAL.cd', 1, 25, 1));
-  sp.appendChild(makeSlider('Damage', 'SPECIAL.dmg', 0, 40, 1));
-  sp.appendChild(makeSlider('Knockback Base', 'SPECIAL.kb', 0, 50, 1));
-  sp.appendChild(makeSlider('Hitbox Width', 'SPECIAL.w', 16, 100, 2));
-  sp.appendChild(makeSlider('Hitbox Height', 'SPECIAL.h', 16, 80, 2));
-  sp.appendChild(makeSlider('Meter Max', 'SPECIAL.maxMeter', 10, 300, 5));
-  sp.appendChild(makeSlider('Meter Gain Mult', 'SPECIAL.meterGainMult', 0, 3, 0.1));
+  sp.appendChild(makeSlider('Max Meter', 'SPECIAL.maxMeter', 10, 300, 5));
+  sp.appendChild(makeSlider('Meter Gain (dealt dmg)', 'SPECIAL.meterGainMult', 0, 3, 0.1));
+  sp.appendChild(makeSlider('Meter Gain (taken dmg)', 'SPECIAL.meterDamageTakenMult', 0, 3, 0.1));
+  sp.appendChild(makeSlider('Meter Drain Per Use', 'SPECIAL.meterDrain', 5, 100, 5));
   app.appendChild(sp);
 
   /* Movement */

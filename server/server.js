@@ -142,7 +142,7 @@ function handleMessage(ws, raw) {
             break;
         }
         case "jump": {
-            const jv = getCharStats(player).jumpVelocity;
+            const jv = Math.min(getCharStats(player).jumpVelocity, C.MIN_JUMP_VELOCITY);
             if (player.onGround) {
                 player.vy = jv;
                 player.onGround = false;
@@ -169,19 +169,27 @@ function handleMessage(ws, raw) {
         case "attack": {
             if (!player.attacking && player.attackCooldown <= 0 && !player.specialAttacking) {
                 const dir = msg.dir || 'neutral';
-                const cfg = C.ATTACK_DIRS[dir];
+                const stats = getCharStats(player);
+                const cfg = stats.attacks[dir];
                 if (!cfg) break;
                 player.attacking = true;
                 player.attackDir = dir;
                 player.attackTimer = cfg.active;
                 player.attackCooldown = cfg.cd;
+                if (cfg.lunge) {
+                    player.vx = player.facing * cfg.lunge;
+                }
+                if (cfg.spawnsProjectile) {
+                    spawnProjectile(player, cfg);
+                }
             }
             break;
         }
         case "specialAttack": {
             if (!player.specialAttacking && !player.attacking) {
                 const dir = msg.dir || 'neutral';
-                const scfg = C.SPECIAL_DIRS[dir];
+                const stats = getCharStats(player);
+                const scfg = stats.specials[dir];
                 if (!scfg) break;
                 const drain = Math.min(C.SPECIAL.meterDrain, player.specialMeter);
                 player.specialMeterUsed = player.specialMeter;
@@ -190,6 +198,9 @@ function handleMessage(ws, raw) {
                 player.specialAttackDir = dir;
                 player.specialAttackTimer = scfg.active;
                 player.specialAttackCooldown = scfg.cd;
+                if (scfg.spawnsProjectile) {
+                    spawnProjectile(player, scfg);
+                }
             }
             break;
         }
@@ -311,7 +322,7 @@ function updatePlayer(p) {
 /* ── Combat ── */
 
 function getAttackHitbox(p, dir, cfg) {
-    if (!cfg) cfg = C.ATTACK_DIRS[dir] || C.ATTACK_DIRS.neutral;
+    if (!cfg) return { x: 0, y: 0, w: 0, h: 0 };
     const f = p.facing;
     switch (dir) {
         case 'up': {
@@ -339,16 +350,16 @@ function checkCombat() {
 
         const isSpecial = attacker.specialAttacking;
         const sDir = isSpecial ? attacker.specialAttackDir : attacker.attackDir;
+        const atkStats = getCharStats(attacker);
         const cfg = isSpecial
-            ? (C.SPECIAL_DIRS[sDir] || C.SPECIAL_DIRS.neutral)
-            : (C.ATTACK_DIRS[sDir] || C.ATTACK_DIRS.neutral);
+            ? (atkStats.specials[sDir] || atkStats.specials.neutral)
+            : (atkStats.attacks[sDir] || atkStats.attacks.neutral);
         const hitbox = getAttackHitbox(attacker, sDir, cfg);
         const rawRatio = isSpecial ? (attacker.specialMeterUsed / C.SPECIAL.maxMeter) : 1;
         const tier = isSpecial ? Math.max(1, Math.ceil(rawRatio / 0.25)) : 4;
         const meterRatio = Math.min(1, tier * 0.25);
         const rawDmg = Math.max(1, Math.floor(cfg.dmg * meterRatio));
         const kbBase = Math.max(1, Math.floor(cfg.kb * meterRatio));
-        const atkStats = getCharStats(attacker);
 
         for (const target of players) {
             if (target.id === attacker.id) continue;
@@ -358,7 +369,17 @@ function checkCombat() {
 
             const dmg = Math.max(1, Math.floor(rawDmg * atkStats.dmgDealtMult * defStats.dmgTakenMult));
             const dir = target.x < attacker.x ? -1 : 1;
-            const kb = (kbBase + target.damage * 0.3) * defStats.weight;
+            let kb = (kbBase + target.damage * 0.3) * defStats.weight;
+
+            if ((target.attacking || target.specialAttacking)) {
+                const defCfg = target.specialAttacking
+                    ? (getCharStats(target).specials[target.specialAttackDir] || getCharStats(target).specials.neutral)
+                    : (getCharStats(target).attacks[target.attackDir] || getCharStats(target).attacks.neutral);
+                if (defCfg && defCfg.armor) {
+                    kb *= 0.5;
+                }
+            }
+
             target.vx = dir * kb;
             target.vy = (-8 - target.damage * 0.2) * defStats.weight;
             if (target.shielding && target.shieldHealth > 0) {
@@ -381,6 +402,54 @@ function checkCombat() {
     }
 }
 
+/* ── Projectiles ── */
+
+let projectileIdCounter = 0;
+let projectiles = [];
+
+function spawnProjectile(owner, cfg) {
+    projectiles.push({
+        id: ++projectileIdCounter,
+        x: owner.x + owner.facing * 20,
+        y: owner.y - 4,
+        vx: (cfg.projectileVx || 5) * owner.facing,
+        vy: 0,
+        w: cfg.projectileW || 16,
+        h: cfg.projectileH || 12,
+        dmg: cfg.projectileDmg || 5,
+        kb: cfg.projectileKb || 8,
+        lifetime: cfg.projectileLifetime || 40,
+        ownerId: owner.id,
+    });
+}
+
+function updateProjectiles() {
+    for (let i = projectiles.length - 1; i >= 0; i--) {
+        const proj = projectiles[i];
+        proj.x += proj.vx;
+        proj.y += proj.vy;
+        proj.lifetime--;
+        if (proj.lifetime <= 0) {
+            projectiles.splice(i, 1);
+            continue;
+        }
+        const players = pm.getAllPlayers();
+        for (const target of players) {
+            if (target.id === proj.ownerId) continue;
+            const bounds = getBounds(target);
+            const projBounds = { x: proj.x - proj.w / 2, y: proj.y - proj.h / 2, w: proj.w, h: proj.h };
+            if (rectsOverlap(projBounds, bounds)) {
+                target.damage += proj.dmg;
+                const dir = target.x < proj.x ? -1 : 1;
+                target.vx = dir * proj.kb;
+                target.vy = -6;
+                projectiles.splice(i, 1);
+                break;
+            }
+        }
+    }
+}
+
 /* ── Game loop ── */
 
 function tick() {
@@ -389,9 +458,10 @@ function tick() {
         updatePlayer(p);
     }
     checkCombat();
+    updateProjectiles();
 
     const state = pm.getAllPlayerStates();
-    broadcast({ type: "GAME_STATE", players: state });
+    broadcast({ type: "GAME_STATE", players: state, projectiles: projectiles.map(p => ({ id: p.id, x: p.x, y: p.y, w: p.w, h: p.h })) });
 }
 
 /* ── WebSocket ── */
