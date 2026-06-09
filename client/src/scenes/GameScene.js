@@ -269,11 +269,12 @@ export default class GameScene extends Phaser.Scene {
       const baseY = 24;
       const color = player.playerColor;
 
+      const panelLeft = isLocal ? baseX - 10 : baseX - 100;
       this.stockGfx.fillStyle(0xffffff);
-      this.stockGfx.fillRect(baseX - 10, baseY - 10, 110, 28);
+      this.stockGfx.fillRect(panelLeft, baseY - 10, 110, 28);
 
       this.stockGfx.fillStyle(0x1a1a2e);
-      this.stockGfx.fillRect(baseX - 9, baseY - 9, 108, 26);
+      this.stockGfx.fillRect(panelLeft + 1, baseY - 9, 108, 26);
 
       this.stockGfx.fillStyle(color);
       for (let i = 0; i < 3; i++) {
@@ -300,7 +301,7 @@ export default class GameScene extends Phaser.Scene {
           fontStyle: 'bold',
           stroke: '#000000',
           strokeThickness: 2,
-        }).setOrigin(0.5);
+        }).setOrigin(0.5).setDepth(51);
       } else {
         this.hudTexts[id].setPosition(textX, baseY);
         this.hudTexts[id].setText(`${Math.floor(player.damage)}%`);

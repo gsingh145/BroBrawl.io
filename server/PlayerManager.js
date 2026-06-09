@@ -22,6 +22,7 @@ const DEFAULT_PLAYER_STATE = {
     attackCooldown: 0,
     specialAttackCooldown: 0,
     specialMeter: 0,
+    shieldHealth: 100,
 };
 
 function copyState(player) {
@@ -43,6 +44,7 @@ function copyState(player) {
         dashing: player.dashing,
         dashTimer: player.dashTimer,
         specialMeter: player.specialMeter,
+        shieldHealth: player.shieldHealth,
     };
 }
 

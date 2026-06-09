@@ -45,6 +45,8 @@ module.exports = {
     { left: 505, right: 595, surfaceY: 140 },
   ],
 
+  SHIELD: { maxHealth: 100, baseReduction: 0.2, drainRate: 1 },
+
   SPAWN_POSITIONS: [
     { x: 200, y: 200 },
     { x: 600, y: 200 },

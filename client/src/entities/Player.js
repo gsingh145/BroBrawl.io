@@ -19,6 +19,7 @@ export default class Player {
     this.stocks = 3;
     this.shielding = false;
     this.specialMeter = 0;
+    this.shieldHealth = 100;
 
     this.attacking = false;
     this.attackDir = 'neutral';
@@ -130,6 +131,7 @@ export default class Player {
     this.facing = state.facing === -1 ? 'left' : 'right';
     this.shielding = state.shielding || false;
     this.specialMeter = state.specialMeter || 0;
+    this.shieldHealth = state.shieldHealth ?? 100;
     this.lastVx = state.vx || 0;
     this.lastVy = state.vy || 0;
     this.onGround = state.onGround || false;
@@ -260,11 +262,14 @@ export default class Player {
     this.damageText.setColor(`rgb(255, ${gb}, ${gb})`);
 
     if (this.shielding) {
+      const ratio = this.shieldHealth / 100;
+      const sw = 48 * ratio;
+      const sh = 60 * ratio;
       this.shieldGfx.clear();
       this.shieldGfx.fillStyle(0x88aaff, 0.15);
-      this.shieldGfx.fillEllipse(x, y, 44, 56);
+      this.shieldGfx.fillEllipse(x, y, sw, sh);
       this.shieldGfx.lineStyle(2, 0x88aaff, 0.35);
-      this.shieldGfx.strokeEllipse(x, y, 44, 56);
+      this.shieldGfx.strokeEllipse(x, y, sw, sh);
       this.shieldGfx.setVisible(true);
     } else {
       this.shieldGfx.setVisible(false);

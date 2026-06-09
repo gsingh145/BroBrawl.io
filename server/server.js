@@ -181,6 +181,7 @@ function die(p) {
         p.dashing = false;
         p.dashTimer = 0;
         p.specialMeter = 0;
+        p.shieldHealth = C.SHIELD.maxHealth;
     }
 }
 
@@ -194,6 +195,10 @@ function updatePlayer(p) {
     if (p.dashTimer > 0) {
         p.dashTimer--;
         if (p.dashTimer <= 0) p.dashing = false;
+    }
+
+    if (p.shielding) {
+        p.shieldHealth = Math.max(0, p.shieldHealth - C.SHIELD.drainRate);
     }
 
     const prevY = p.y;
@@ -280,7 +285,15 @@ function checkCombat() {
             const kb = kbBase + target.damage * 0.3;
             target.vx = dir * kb;
             target.vy = -8 - target.damage * 0.2;
-            target.damage += target.shielding ? Math.floor(dmg * 0.5) : dmg;
+            if (target.shielding && target.shieldHealth > 0) {
+                const ratio = target.shieldHealth / C.SHIELD.maxHealth;
+                const mult = C.SHIELD.baseReduction + (1 - C.SHIELD.baseReduction) * (1 - ratio);
+                const absorbed = Math.floor(dmg * (1 - mult));
+                target.shieldHealth = Math.max(0, target.shieldHealth - absorbed);
+                target.damage += Math.floor(dmg * mult);
+            } else {
+                target.damage += dmg;
+            }
             target.attacking = false;
             target.specialAttacking = false;
 

@@ -36,6 +36,8 @@ export const CFG = {
     { left: 340, right: 460, surfaceY: 188 },
   ],
 
+  SHIELD: { maxHealth: 100, baseReduction: 0.2, drainRate: 1 },
+
   SPAWN_POSITIONS: [
     { x: 250, y: 100 },
     { x: 550, y: 100 },
