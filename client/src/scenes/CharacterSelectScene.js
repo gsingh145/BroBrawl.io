@@ -1,5 +1,6 @@
 import Phaser from 'phaser';
 import { CHARACTER_LIST } from '../characters/index.js';
+import { playSound, initSounds, startMusic, stopMusic } from '../audio/SoundManager.js';
 
 export default class CharacterSelectScene extends Phaser.Scene {
   constructor() {
@@ -10,9 +11,12 @@ export default class CharacterSelectScene extends Phaser.Scene {
     this.connection = data.connection;
     this.selected = null;
 
+    initSounds();
+    startMusic('lobby');
+
     const { width, height } = this.scale;
 
-    const showChars = CHARACTER_LIST.filter(ch => ch.id === 'brawn_boy' || ch.id === 'wizard' || ch.id === 'shadow' || ch.id === 'samurai');
+    const showChars = CHARACTER_LIST;
 
     this.add.rectangle(width / 2, 30, width, 60, 0x1a1a3e).setDepth(5);
     this.add.text(width / 2, 30, 'SELECT YOUR CHARACTER', {
@@ -62,6 +66,7 @@ export default class CharacterSelectScene extends Phaser.Scene {
       });
       bg.on('pointerdown', () => {
         if (this.selected) return;
+        playSound('select');
         this.selected = ch.id;
         bg.setFillStyle(0x446644);
         bg.setStrokeStyle(3, 0x44ff44);
@@ -95,7 +100,7 @@ export default class CharacterSelectScene extends Phaser.Scene {
 
     this.unsubs.push(
       this.connection.on('GAME_START', (msg) => {
-        const myChar = msg.players.find(p => p.id === this.connection.playerId)?.character || 'brawn_boy';
+        const myChar = msg.players.find(p => p.id === this.connection.playerId)?.character || 'sensei_waisas';
         this.scene.start('GameScene', { connection: this.connection, character: myChar });
       })
     );

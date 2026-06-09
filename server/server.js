@@ -52,10 +52,10 @@ ${classEntries.join(",\n")}
 };
 
 const CHARACTERS = {
-  brawn_boy: { id: 'brawn_boy', ...CLASSES.heavy },
-  wizard:    { id: 'wizard',    ...CLASSES.zoner },
-  shadow:    { id: 'shadow',    ...CLASSES.combo },
-  samurai:   { id: 'samurai',   ...CLASSES.sword },
+  sensei_waisas: { id: 'sensei_waisas', ...CLASSES.sword },
+  brawn_boy:    { id: 'brawn_boy',    ...CLASSES.heavy },
+  the_damned:   { id: 'the_damned',   ...CLASSES.zoner },
+  nam_saiyan:   { id: 'nam_saiyan',   ...CLASSES.combo },
 };
 
 module.exports = CHARACTERS;

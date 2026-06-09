@@ -86,7 +86,7 @@ export default class MenuScene extends Phaser.Scene {
     this.connection.on('close', () => {
       this.statusText.setText('Disconnected. Refresh to retry.');
       this.btnText.setText('Disconnected');
-      btnBg.disableInteractive();
+      if (btnBg && btnBg.input) btnBg.disableInteractive();
     });
 
     this.connection.on('PLAYER_LIST', (msg) => {

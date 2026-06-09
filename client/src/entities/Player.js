@@ -3,8 +3,8 @@ import { CHARACTERS } from '../characters/index.js';
 
 export default class Player {
   constructor(scene, x, y, config = {}) {
-    const { isRemote = false, character = 'brawn_boy', playerColor } = config;
-    const ch = CHARACTERS[character] || CHARACTERS.brawn_boy;
+    const { isRemote = false, character = 'sensei_waisas', playerColor } = config;
+    const ch = CHARACTERS[character] || CHARACTERS.sensei_waisas;
 
     this.charConfig = ch;
     this.generateTextures(scene);
@@ -14,10 +14,13 @@ export default class Player {
     this.playerColor = playerColor || ch.color;
 
     this.sprite = scene.add.sprite(x, y, this.texId('idle'));
-    this.baseScaleX = 32 / this.sprite.frame.width;
-    this.baseScaleY = 48 / this.sprite.frame.height;
+    this.baseScaleX = 40 / this.sprite.frame.width;
+    this.baseScaleY = 60 / this.sprite.frame.height;
     this.sprite.setScale(this.baseScaleX, this.baseScaleY);
-    this.sprite.setTint(this.playerColor);
+    this.sprite.setDepth(20);
+
+    this.markerGfx = scene.add.graphics();
+    this.markerGfx.setDepth(20);
 
     this.facing = 'right';
     this.damage = 0;
@@ -44,6 +47,14 @@ export default class Player {
     this.lastVx = 0;
     this.onGround = true;
     this.landSquashTimer = 0;
+    this.dashing = false;
+    this.canDoubleJump = false;
+    this.prevDashing = false;
+    this.prevCanDoubleJump = false;
+    this.dashEffectTimer = 0;
+    this.djEffectTimer = 0;
+    this.attackStartTimer = 0;
+    this.shieldStartTimer = 0;
 
     this.damageText = scene.add.text(x, y - 44, '0%', {
       fontSize: '14px',
@@ -58,6 +69,14 @@ export default class Player {
 
     this.shieldGfx = scene.add.graphics();
     this.shieldGfx.setVisible(false);
+
+    this.dashGfx = scene.add.graphics();
+    this.dashGfx.setDepth(19);
+
+    this.djGfx = scene.add.graphics();
+    this.djGfx.setDepth(25);
+
+    this.attackLungeX = 0;
   }
 
   texId(state) {
@@ -118,29 +137,49 @@ export default class Player {
       this.playerColor = state.playerColor;
     }
 
+    // Dash state
+    this.dashing = state.dashing || false;
+    if (this.dashing && !this.prevDashing) {
+      this.dashEffectTimer = 200;
+    }
+    this.prevDashing = this.dashing;
+
+    // Double jump detection
+    this.canDoubleJump = state.canDoubleJump || false;
+    if (!this.onGround && !this.canDoubleJump && this.prevCanDoubleJump) {
+      this.djEffectTimer = 300;
+    }
+    this.prevCanDoubleJump = this.canDoubleJump;
+
     if (dmgIncrease > 0) {
       this.hitFlashTimer = 100;
     }
 
     if (state.attacking && !this.attacking) {
       this.startAttack(state.attackDir || 'neutral');
+      this.attackStartTimer = 120;
     }
     if (state.specialAttacking && !this.specialAttacking) {
       this.startSpecialAttack(state.specialAttackDir || 'neutral');
+      this.attackStartTimer = 160;
     }
     this.specialAttackDir = state.specialAttackDir || 'neutral';
   }
 
   handleLocalInput(input) {
-    const { attack, specialAttack, shield, attackDir, specialDir, vx } = input;
+    const { attack, specialAttack, shield, attackDir, specialDir, vx, dashing, canDoubleJump } = input;
     if (vx !== undefined) this.lastVx = vx;
     if (attack && !this.attacking && !this.specialAttacking && this.attackCooldown <= 0) {
       this.startAttack(attackDir || 'neutral');
+      this.attackStartTimer = 120;
     }
     if (specialAttack && !this.specialAttacking && !this.attacking && this.specialAttackCooldown <= 0) {
       this.startSpecialAttack(specialDir || 'neutral');
+      this.attackStartTimer = 160;
     }
     this.shielding = shield;
+    this.dashing = dashing || false;
+    this.canDoubleJump = canDoubleJump || false;
   }
 
   getAttackCfg(dir) {
@@ -161,6 +200,7 @@ export default class Player {
     const cfg = this.getAttackCfg(this.attackDir);
     this.attackTimer = cfg.active * 50;
     this.attackCooldown = cfg.cd * 50;
+    this.attackLungeX = this.facing === 'right' ? 7 : -7;
   }
 
   startSpecialAttack(dir) {
@@ -169,6 +209,7 @@ export default class Player {
     const cfg = this.getSpecialCfg(this.specialAttackDir);
     this.specialAttackTimer = cfg.active * 50;
     this.specialAttackCooldown = cfg.cd * 50;
+    this.attackLungeX = this.facing === 'right' ? 8 : -8;
   }
 
   update(delta) {
@@ -190,6 +231,17 @@ export default class Player {
     if (this.specialAttackCooldown > 0) this.specialAttackCooldown -= delta;
     if (this.hitFlashTimer > 0) this.hitFlashTimer -= delta;
     if (this.landSquashTimer > 0) this.landSquashTimer -= delta;
+    if (this.dashEffectTimer > 0) this.dashEffectTimer -= delta;
+    if (this.djEffectTimer > 0) this.djEffectTimer -= delta;
+    if (this.attackStartTimer > 0) this.attackStartTimer -= delta;
+    if (this.shieldStartTimer > 0) this.shieldStartTimer -= delta;
+
+    if (this.attacking || this.specialAttacking) {
+      this.attackLungeX *= 0.85;
+    } else {
+      this.attackLungeX *= 0.7;
+    }
+    if (Math.abs(this.attackLungeX) < 0.5) this.attackLungeX = 0;
 
     this.updateWalk(delta);
     this.updateAnimFrame();
@@ -214,20 +266,29 @@ export default class Player {
 
     if (this.hitFlashTimer > 0) {
       this.sprite.setTint(0xffffff);
-    } else if (this.shielding) {
-      this.sprite.setTint(0x88aaff);
     } else {
-      this.sprite.setTint(this.playerColor);
+      this.sprite.setTint(0xffffff);
     }
 
     this.sprite.setFlipX(this.facing === 'left');
 
     const sc = (sx, sy) => this.sprite.setScale(this.baseScaleX * sx, this.baseScaleY * sy);
     const tid = (s) => this.texId(s);
+
     if (this.attacking || this.specialAttacking) {
       this.sprite.setTexture(tid('idle'));
+      const pop = this.attackStartTimer > 60 ? 1.15 : 1;
+      this.sprite.x = x + this.attackLungeX;
       this.sprite.y = y;
-      sc(1, 1);
+      sc(pop, 1 / pop);
+      return;
+    }
+
+    const dashingEffect = this.dashing && this.onGround;
+    if (dashingEffect) {
+      sc(1.2, 0.85);
+      this.sprite.setTexture(tid('walk1'));
+      this.sprite.y = y + 2;
       return;
     }
 
@@ -260,6 +321,13 @@ export default class Player {
     const gb = Math.floor(255 * (1 - dmgPct));
     this.damageText.setColor(`rgb(255, ${gb}, ${gb})`);
 
+    this.markerGfx.clear();
+    this.markerGfx.fillStyle(this.playerColor, 1);
+    this.markerGfx.fillTriangle(x - 5, y - 34, x + 5, y - 34, x, y - 42);
+    this.markerGfx.fillStyle(this.playerColor, 0.4);
+    this.markerGfx.fillTriangle(x - 3, y - 33, x + 3, y - 33, x, y - 38);
+
+    // Shield bubble
     if (this.shielding) {
       const ratio = this.shieldHealth / 100;
       const sw = 48 * ratio;
@@ -274,6 +342,51 @@ export default class Player {
       this.shieldGfx.setVisible(false);
     }
 
+    // Dash effect: speed lines
+    this.dashGfx.clear();
+    if (this.dashing && this.onGround) {
+      const f = this.facing === 'right' ? -1 : 1;
+      this.dashGfx.lineStyle(2, 0x88aaff, 0.4);
+      for (let i = 0; i < 4; i++) {
+        const lx = x + f * (18 + i * 8);
+        const ly = y - 8 + i * 6;
+        const len = 6 + i * 3;
+        this.dashGfx.lineBetween(lx, ly, lx + f * len, ly);
+      }
+      this.dashGfx.fillStyle(0x88aaff, 0.25);
+      for (let i = 0; i < 3; i++) {
+        const dx = x + f * (8 + i * 6 + Math.random() * 4);
+        const dy = y - 6 + Math.random() * 12;
+        this.dashGfx.fillCircle(dx, dy, 1 + Math.random() * 2);
+      }
+    } else if (this.dashEffectTimer > 0) {
+      const t = this.dashEffectTimer / 200;
+      const f = this.facing === 'right' ? -1 : 1;
+      this.dashGfx.lineStyle(2, 0x88aaff, t * 0.5);
+      const ringR = 4 + (1 - t) * 8;
+      this.dashGfx.strokeCircle(x + f * 12, y, ringR);
+    }
+
+    // Double jump effect
+    this.djGfx.clear();
+    if (this.djEffectTimer > 0) {
+      const t = this.djEffectTimer / 300;
+      const a = t * 0.5;
+      const r = 4 + (1 - t) * 14;
+      this.djGfx.lineStyle(2, 0xffffff, a);
+      this.djGfx.strokeCircle(x, y + 34, r);
+      this.djGfx.lineStyle(1, 0xffffff, a * 0.6);
+      this.djGfx.strokeCircle(x, y + 34, r + 4);
+      for (let i = 0; i < 4; i++) {
+        const angle = i * Math.PI / 2;
+        const dx = x + Math.cos(angle) * r;
+        const dy = y + 34 + Math.sin(angle) * r;
+        this.djGfx.fillStyle(0xffffff, a * 0.4);
+        this.djGfx.fillCircle(dx, dy, 1.5);
+      }
+    }
+
+    // Attack / Special attack FX
     const col = this.playerColor || 0xffffff;
     const bright = Phaser.Display.Color.IntegerToColor(col);
     const color = { red: bright.red, green: bright.green, blue: bright.blue };
@@ -284,8 +397,7 @@ export default class Player {
       const dir = this.specialAttackDir || 'neutral';
       const cfg = this.getSpecialCfg(dir);
       this.attackGfx.clear();
-      const fn = SPECIAL_FX[cls] || SPECIAL_FX.sword;
-      fn(this.attackGfx, x, y, cfg, facing, color);
+      BEAM_FX(this.attackGfx, x, y, cfg, facing, color, dir);
       this.attackGfx.setVisible(true);
     } else if (this.attacking) {
       const dir = this.attackDir || 'neutral';
@@ -305,6 +417,9 @@ export default class Player {
     this.damageText?.destroy();
     this.attackGfx?.destroy();
     this.shieldGfx?.destroy();
+    this.markerGfx?.destroy();
+    this.dashGfx?.destroy();
+    this.djGfx?.destroy();
   }
 }
 
@@ -508,60 +623,109 @@ ATK_FX.sword = {
   },
 };
 
-/* ── Special visuals ── */
-const SPECIAL_FX = {
-  heavy(g, x, y, cfg, f, c) {
-    const r = Math.max(4, cfg.w / 2);
-    g.fillStyle(hexCol(c), 0.35);
-    g.fillCircle(x, y, r);
-    g.lineStyle(4, hexCol(c), 0.6);
-    g.strokeCircle(x, y, r + 4);
-    g.lineStyle(2, hexCol(c), 0.25);
-    g.strokeCircle(x, y, r + 10);
-    for (let i = 0; i < 8; i++) {
-      const a = i * Math.PI / 4;
-      const r1 = r + 12;
-      const r2 = r + 20;
-      g.lineBetween(x + Math.cos(a) * r1, y + Math.sin(a) * r1, x + Math.cos(a) * r2, y + Math.sin(a) * r2);
-    }
-  },
-  zoner(g, x, y, cfg, f, c) {
-    const len = Math.max(8, cfg.w);
-    const sx = f === 1 ? x + 16 : x - 16 - len;
-    g.fillStyle(hexCol(c), 0.6);
-    g.fillRect(sx, y - 4, len, 8);
-    g.fillTriangle(
-      f === 1 ? sx + len : sx, y - 8,
-      f === 1 ? sx + len : sx, y + 8,
-      f === 1 ? sx + len + f * 12 : sx + f * 12, y
-    );
-    g.fillStyle(hexCol(c), 0.3);
-    for (let i = 1; i <= 3; i++) {
-      const dx = f === 1 ? sx - i * 14 : sx + len + i * 14;
-      g.fillCircle(dx, y, 3 - i * 0.5);
-    }
-  },
-  combo(g, x, y, cfg, f, c) {
-    const r = Math.max(4, cfg.w / 2);
-    g.lineStyle(3, hexCol(c), 0.6);
-    for (let i = 0; i < 8; i++) {
-      const a = i * Math.PI / 4;
-      g.lineBetween(x, y, x + Math.cos(a) * r, y + Math.sin(a) * r);
-    }
-    g.fillStyle(hexCol(c), 0.4);
-    g.fillCircle(x, y, r / 3);
-  },
-  sword(g, x, y, cfg, f, c) {
-    const r = Math.max(4, cfg.w / 2);
-    g.lineStyle(4, hexCol(c), 0.6);
-    g.beginPath();
-    g.arc(x, y, r, -1.8, 1.8);
-    g.strokePath();
-    g.lineStyle(2, hexCol(c), 0.3);
-    g.beginPath();
-    g.arc(x, y, r + 6, -1.6, 1.6);
-    g.strokePath();
-    g.fillStyle(hexCol(c), 0.3);
-    g.fillCircle(x + r, y, 5);
-  },
-};
+/* ── Beam of Light (special attack) ── */
+function BEAM_FX(g, x, y, cfg, f, c, dir) {
+  const beamLen = Math.max(20, cfg.w);
+  const beamW = Math.max(4, cfg.h * 0.5);
+  const col = hexCol(c);
+
+  let bx, by, angle;
+  if (dir === 'up') {
+    bx = x;
+    by = y - beamLen;
+    angle = -Math.PI / 2;
+  } else if (dir === 'down') {
+    bx = x;
+    by = y + beamLen;
+    angle = Math.PI / 2;
+  } else {
+    bx = x + f * beamLen;
+    by = y;
+    angle = f > 0 ? 0 : Math.PI;
+  }
+
+  const mx = (x + bx) / 2;
+  const my = (y + by) / 2;
+
+  // Wide outer glow cone
+  g.lineStyle(beamW + 16, col, 0.06);
+  g.beginPath();
+  g.moveTo(x, y);
+  g.lineTo(bx, by);
+  g.strokePath();
+
+  // Mid glow
+  g.lineStyle(beamW + 8, col, 0.15);
+  g.beginPath();
+  g.moveTo(x, y);
+  g.lineTo(bx, by);
+  g.strokePath();
+
+  // Main beam body
+  g.lineStyle(beamW, 0xffffff, 0.35);
+  g.beginPath();
+  g.moveTo(x, y);
+  g.lineTo(bx, by);
+  g.strokePath();
+
+  // Bright white core
+  g.lineStyle(beamW * 0.4, 0xffffff, 0.6);
+  g.beginPath();
+  g.moveTo(x, y);
+  g.lineTo(bx, by);
+  g.strokePath();
+
+  // Radial glow bursts along beam
+  g.fillStyle(0xffffff, 0.15);
+  for (let i = 0; i < 3; i++) {
+    const t = 0.25 + i * 0.25;
+    const rx = x + (bx - x) * t;
+    const ry = y + (by - y) * t;
+    const rw = beamW * 1.8 + i * 4;
+    g.fillEllipse(rx, ry, rw, rw * 0.3);
+  }
+
+  // Tip: expanding ring
+  const ringR = beamW * 1.5;
+  g.lineStyle(2, 0xffffff, 0.4);
+  g.strokeCircle(bx, by, ringR);
+  g.lineStyle(1, col, 0.3);
+  g.strokeCircle(bx, by, ringR + 4);
+
+  // Tip: bright core
+  g.fillStyle(0xffffff, 0.7);
+  g.fillCircle(bx, by, beamW * 0.8);
+  g.fillStyle(col, 0.5);
+  g.fillCircle(bx, by, beamW * 1.2);
+  g.fillStyle(0xffffff, 0.3);
+  g.fillCircle(bx, by, beamW * 0.5);
+
+  // Star flare at tip
+  g.lineStyle(1.5, 0xffffff, 0.4);
+  const flareLen = beamW * 1.5;
+  const perpAngle = angle + Math.PI / 2;
+  g.lineBetween(
+    bx + Math.cos(perpAngle) * flareLen, by + Math.sin(perpAngle) * flareLen,
+    bx - Math.cos(perpAngle) * flareLen, by - Math.sin(perpAngle) * flareLen
+  );
+  g.lineBetween(
+    bx + Math.cos(angle) * flareLen * 0.5, by + Math.sin(angle) * flareLen * 0.5,
+    bx - Math.cos(angle) * flareLen * 0.5, by - Math.sin(angle) * flareLen * 0.5
+  );
+
+  // Light particles scattering from tip
+  g.fillStyle(0xffffff, 0.2);
+  for (let i = 0; i < 5; i++) {
+    const pa = angle + (i - 2) * 0.5 + (Math.random() - 0.5) * 0.3;
+    const pd = 4 + Math.random() * 12;
+    const px = bx + Math.cos(pa) * pd;
+    const py = by + Math.sin(pa) * pd;
+    g.fillCircle(px, py, 1 + Math.random() * 2);
+  }
+
+  // Origin burst
+  g.fillStyle(0xffffff, 0.15);
+  g.fillCircle(x, y, beamW * 0.8);
+  g.fillStyle(col, 0.2);
+  g.fillCircle(x, y, beamW * 1.2);
+}

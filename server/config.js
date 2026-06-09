@@ -5,8 +5,8 @@ module.exports = {
   MOVE_SPEED: 4.5,
   JUMP_VELOCITY: -13,
   MIN_JUMP_VELOCITY: -13,
-  PLAYER_W: 32,
-  PLAYER_H: 48,
+  PLAYER_W: 40,
+  PLAYER_H: 60,
 
   SPECIAL: {
     maxMeter: 100,
@@ -28,11 +28,12 @@ module.exports = {
 
   PLATFORMS: [
     { left: 0, right: 800, surfaceY: 474 },
-    { left: 170, right: 330, surfaceY: 390 },
-    { left: 470, right: 630, surfaceY: 320 },
-    { left: 335, right: 465, surfaceY: 250 },
-    { left: 195, right: 305, surfaceY: 190 },
-    { left: 505, right: 595, surfaceY: 140 },
+    { left: 260, right: 440, surfaceY: 422 },
+    { left: 490, right: 610, surfaceY: 362 },
+    { left: 180, right: 320, surfaceY: 302 },
+    { left: 350, right: 450, surfaceY: 232 },
+    { left: 495, right: 605, surfaceY: 162 },
+    { left: 160, right: 240, surfaceY: 142 },
   ],
 
   SHIELD: { maxHealth: 100, baseReduction: 0.2, drainRate: 1 },
