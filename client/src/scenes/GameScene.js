@@ -636,7 +636,7 @@ export default class GameScene extends Phaser.Scene {
       }
 
       const prev = this.prevStates[state.id];
-      if (prev) {
+      if (prev && !this.winnerId) {
         if ((state.damage || 0) > (prev.damage || 0)) playSound('hit');
         if (state.attacking && !prev.attacking) playSound('attack');
         if (state.shielding && !prev.shielding) playSound('shield');
@@ -674,6 +674,8 @@ export default class GameScene extends Phaser.Scene {
     this.winnerId = winner.id;
     const { width, height } = this.scale;
     const isLocal = winner.id === this.connection.playerId;
+
+    stopMusic();
 
     this.cameras.main.shake(300, 0.02);
 

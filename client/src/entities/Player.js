@@ -62,13 +62,15 @@ export default class Player {
       fontFamily: 'monospace',
       stroke: '#000000',
       strokeThickness: 3,
-    }).setOrigin(0.5);
+    }).setOrigin(0.5).setDepth(21);
 
     this.attackGfx = scene.add.graphics();
     this.attackGfx.setVisible(false);
+    this.attackGfx.setDepth(21);
 
     this.shieldGfx = scene.add.graphics();
     this.shieldGfx.setVisible(false);
+    this.shieldGfx.setDepth(21);
 
     this.dashGfx = scene.add.graphics();
     this.dashGfx.setDepth(19);
