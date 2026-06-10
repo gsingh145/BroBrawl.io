@@ -1,6 +1,7 @@
 import Phaser from 'phaser';
 import ConnectionManager from '../network/ConnectionManager.js';
 import { CHARACTER_LIST } from '../characters/index.js';
+import { loadMusic } from '../audio/SoundManager.js';
 
 export default class MenuScene extends Phaser.Scene {
   constructor() {
@@ -20,6 +21,7 @@ export default class MenuScene extends Phaser.Scene {
   }
 
   create() {
+    loadMusic();
     window.hideLoading && window.hideLoading();
     const { width, height } = this.scale;
 

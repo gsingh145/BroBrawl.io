@@ -98,7 +98,7 @@ export default class CharacterSelectScene extends Phaser.Scene {
     this.unsubs.push(
       this.connection.on('GAME_START', (msg) => {
         const myChar = msg.players.find(p => p.id === this.connection.playerId)?.character || 'sensei_waisas';
-        this.scene.start('GameScene', { connection: this.connection, character: myChar });
+        this.scene.start('GameScene', { connection: this.connection, character: myChar, battleTrack: msg.battleTrack });
       })
     );
 

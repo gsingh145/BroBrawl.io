@@ -14,6 +14,7 @@ export default class GameScene extends Phaser.Scene {
       this.errorText = null;
       this.connection = data.connection;
       this.myCharacter = data.character || 'sensei_waisas';
+      this.battleTrack = data.battleTrack;
 
     this.createBackground();
     this.createPlatforms();
@@ -50,7 +51,7 @@ export default class GameScene extends Phaser.Scene {
     this.prevStates = {};
     this.serverPlatforms = null;
     initSounds();
-    startMusic('battle');
+    startMusic('battle', this.battleTrack);
 
     this.unsubs = [];
     this.unsubs.push(

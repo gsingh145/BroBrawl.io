@@ -273,7 +273,8 @@ function handleMessage(ws, raw) {
                 if (pm.allPlayersReady()) {
                     const allPlayers = pm.getAllPlayers();
                     const info = allPlayers.map(p => ({ id: p.id, character: p.character, x: p.x, y: p.y }));
-                    broadcast({ type: "GAME_START", players: info });
+                    const battleTrack = Math.floor(Math.random() * 5); // 5 battle tracks
+                    broadcast({ type: "GAME_START", players: info, battleTrack });
                     console.log("All players ready - game starting");
                 }
             }

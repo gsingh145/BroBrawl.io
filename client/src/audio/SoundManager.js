@@ -44,16 +44,7 @@ function toneBuffer(freq, len, type = 'square', gain = 0.2) {
   return buf;
 }
 
-function makeLoopBuffer(duration, fn) {
-  const c = getCtx();
-  const sr = c.sampleRate;
-  const len = sr * duration;
-  const buf = c.createBuffer(1, len, sr);
-  const d = buf.getChannelData(0);
-  fn(d, sr, len, duration);
-  return buf;
-}
-
+// Generated fallback music
 function lobbyMusic() {
   const bpm = 100;
   const spb = 60 / bpm;
@@ -65,31 +56,22 @@ function lobbyMusic() {
       const beat = (t / spb) % beats;
       const beatPhase = (t % spb) / spb;
       let sample = 0;
-
-      // Pad chord (C major: C3, E3, G3)
       const padFreqs = [130.81, 164.81, 196.00];
       for (const f of padFreqs) {
         const env = Math.min(1, (t % spb) * 4) * (1 - (t % spb) / spb * 0.3);
         sample += Math.sin(2 * Math.PI * f * t) * env * 0.06;
         sample += Math.sin(2 * Math.PI * f * 0.5 * t) * env * 0.03;
       }
-
-      // Kick on beats 0 and 4
       if (Math.floor(beat) % 4 === 0) {
         const kEnv = Math.exp(-beatPhase * 20);
         sample += Math.sin(2 * Math.PI * 80 * Math.exp(-beatPhase * 8) * t) * kEnv * 0.2;
       }
-
-      // Hi-hat on offbeats
       if (beatPhase > 0.45 && beatPhase < 0.55) {
         sample += (Math.random() * 2 - 1) * 0.04;
       }
-
-      // Bass pulse on each beat
       const bassFreq = [130.81, 130.81, 164.81, 130.81][Math.floor(beat) % 4];
       const bEnv = Math.exp(-beatPhase * 6);
       sample += Math.sin(2 * Math.PI * bassFreq * t) * bEnv * 0.08;
-
       d[i] = sample;
     }
   });
@@ -106,43 +88,59 @@ function battleMusic() {
       const beat = (t / spb) % beats;
       const beatPhase = (t % spb) / spb;
       let sample = 0;
-
-      // Bass line
       const bassNotes = [110, 110, 130.81, 110, 146.83, 146.83, 130.81, 110,
-                         98, 98, 110, 98, 130.81, 130.81, 110, 98];
+                          98, 98, 110, 98, 130.81, 130.81, 110, 98];
       const bf = bassNotes[Math.floor(beat)];
       const bEnv = Math.exp(-beatPhase * 8);
       sample += Math.sign(Math.sin(2 * Math.PI * bf * t)) * bEnv * 0.12;
-
-      // Kick drum
       if (Math.floor(beat) % 2 === 0) {
         const kEnv = Math.exp(-beatPhase * 15);
         sample += Math.sin(2 * Math.PI * 60 * Math.exp(-beatPhase * 6) * t) * kEnv * 0.25;
       }
-
-      // Snare on beats 4 and 12
       if (Math.floor(beat) === 4 || Math.floor(beat) === 12) {
         const sEnv = Math.exp(-beatPhase * 12);
         sample += (Math.random() * 2 - 1) * sEnv * 0.15;
       }
-
-      // Hi-hat 8th notes
       if (beatPhase > 0.45 && beatPhase < 0.55 || beatPhase > 0.95 && beatPhase < 1.0) {
         sample += (Math.random() * 2 - 1) * 0.05;
       }
-
-      // Lead arpeggio
       const arpFreqs = [261.63, 329.63, 392.00, 523.25, 392.00, 329.63, 261.63, 329.63];
       const af = arpFreqs[Math.floor(beat * 2) % arpFreqs.length];
       const aEnv = 0.5 + 0.5 * Math.sin(beatPhase * Math.PI);
       sample += Math.sin(2 * Math.PI * af * t) * aEnv * 0.04 * (1 - 0.5 * Math.sin(beatPhase * Math.PI));
-
       d[i] = Math.max(-0.5, Math.min(0.5, sample));
     }
   });
 }
 
+function makeLoopBuffer(duration, fn) {
+  const c = getCtx();
+  const sr = c.sampleRate;
+  const len = sr * duration;
+  const buf = c.createBuffer(1, len, sr);
+  const d = buf.getChannelData(0);
+  fn(d, sr, len, duration);
+  return buf;
+}
+
 let sounds = null;
+let mp3Lobby = null;
+const mp3Battle = [];
+
+export async function loadMusic() {
+  const c = getCtx();
+  try {
+    const r1 = await fetch('/audio/lobby.mp3');
+    mp3Lobby = await c.decodeAudioData(await r1.arrayBuffer());
+  } catch { /* fallback */ }
+  for (let i = 1; ; i++) {
+    try {
+      const r = await fetch(`/audio/battle_${i}.mp3`);
+      if (!r.ok) break;
+      mp3Battle.push(await c.decodeAudioData(await r.arrayBuffer()));
+    } catch { break; }
+  }
+}
 
 export function initSounds() {
   if (sounds) return sounds;
@@ -190,10 +188,16 @@ export function playSound(name, vol) {
   if (s) playBuffer(s, vol);
 }
 
-export function startMusic(type) {
+export function startMusic(type, trackIndex) {
   stopMusic();
   const c = getCtx();
-  const buf = initSounds()[type === 'battle' ? 'musicBattle' : 'musicLobby'];
+  let buf;
+  if (type === 'battle') {
+    const pool = mp3Battle.length ? mp3Battle : [initSounds().musicBattle];
+    buf = (trackIndex != null && pool[trackIndex]) ? pool[trackIndex] : pool[Math.floor(Math.random() * pool.length)];
+  } else {
+    buf = mp3Lobby || initSounds().musicLobby;
+  }
   if (!buf) return;
   musicNode = c.createBufferSource();
   musicNode.buffer = buf;
@@ -207,7 +211,7 @@ export function startMusic(type) {
 export function stopMusic() {
   if (musicNode) {
     try { musicNode.stop(); } catch {}
-    musicNode.disconnect();
+    try { musicNode.disconnect(); } catch {}
     musicNode = null;
   }
 }
