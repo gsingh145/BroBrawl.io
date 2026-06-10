@@ -50,9 +50,6 @@ export default class CharacterSelectScene extends Phaser.Scene {
         fontSize: '16px', color: '#ffffff', fontFamily: 'monospace', fontStyle: 'bold',
       }).setOrigin(0.5).setDepth(2);
 
-      this.add.text(cx, cy + 38, ch.class.toUpperCase(), {
-        fontSize: '9px', color: '#aaaaaa', fontFamily: 'monospace',
-      }).setOrigin(0.5).setDepth(2);
 
       const readyText = this.add.text(cx, cy + 65, '', {
         fontSize: '13px', color: '#44ff44', fontFamily: 'monospace',

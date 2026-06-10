@@ -21,27 +21,17 @@
   #resetBtn { background: #c44; color: #fff; margin-top: 20px; }
   #status { margin-top: 12px; color: #888; }
 
-  .tabs { display: flex; gap: 4px; margin: 10px 0; }
-  .tab { background: #222; color: #888; padding: 8px 20px; border-radius: 4px 4px 0 0; }
-  .tab.active { background: #2a2a44; color: #88ccff; }
-  .tab:hover { background: #333; }
-  .char-panel { display: none; background: #1a1a2e; padding: 12px; border-radius: 0 4px 4px 4px; }
-  .char-panel.active { display: block; }
   table { width: 100%; border-collapse: collapse; margin: 8px 0; }
   th, td { padding: 4px 8px; text-align: center; border: 1px solid #333; font-size: 13px; }
   th { background: #222; color: #88ccff; }
   td { background: #1a1a2e; }
   td label { color: #aaa; font-size: 12px; }
-  td input[type=range] { width: 70px; vertical-align: middle; }
-  td .val { width: 32px; display: inline-block; text-align: right; color: #fff; font-size: 12px; }
-  td .saved { display: none; }
+  td input[type=range] { width: 60px; vertical-align: middle; }
+  td .val { width: 28px; display: inline-block; text-align: right; color: #fff; font-size: 12px; }
   .dir-label { color: #fff; font-weight: bold; }
-  .extras-cell { min-width: 180px; }
-  .extras-cell .row { margin: 2px 0; gap: 4px; }
-  .extras-cell .row label { width: auto; font-size: 11px; min-width: 60px; }
-  .extras-cell .row input[type=range] { width: 50px; }
-  .extras-cell .row .val { width: 24px; font-size: 11px; }
+  .extras-cell { min-width: 160px; }
   .sub-header { color: #aaa; font-size: 13px; margin: 12px 0 4px; }
+  select { background: #222; color: #ddd; font: 14px monospace; padding: 4px 8px; border: 1px solid #444; border-radius: 4px; margin-bottom: 10px; }
 </style>
 </head>
 <body>
@@ -70,27 +60,9 @@ async function patchChars(updates) {
 
 let cfg = {};
 let charData = {};
-let currentClass = 'heavy';
+let currentChar = 'sensei_waisas';
 
-function safeGet(obj, parts) {
-  let o = obj;
-  for (const p of parts) {
-    if (o == null || typeof o !== 'object') return undefined;
-    o = o[p];
-  }
-  return o;
-}
-
-function safeSet(obj, parts, val) {
-  let o = obj;
-  for (let i = 0; i < parts.length - 1; i++) {
-    if (o[parts[i]] == null || typeof o[parts[i]] !== 'object') o[parts[i]] = {};
-    o = o[parts[i]];
-  }
-  o[parts[parts.length - 1]] = val;
-}
-
-function makeSlider(label, path, min, max, step, def) {
+function makeSlider(label, path, min, max, step) {
   const parts = path.split('.');
   const row = document.createElement('div');
   row.className = 'row';
@@ -106,11 +78,14 @@ function makeSlider(label, path, min, max, step, def) {
   saved.textContent = 'saved';
 
   function getVal() {
-    const v = safeGet(cfg, parts);
-    return v != null ? v : (def ?? 0);
+    let o = cfg;
+    for (const p of parts) o = o[p];
+    return o;
   }
   function setVal(v) {
-    safeSet(cfg, parts, v);
+    let o = cfg;
+    for (let i = 0; i < parts.length - 1; i++) o = o[parts[i]];
+    o[parts[parts.length - 1]] = v;
   }
 
   inp.value = getVal();
@@ -151,55 +126,40 @@ function makeSlider(label, path, min, max, step, def) {
   return row;
 }
 
-function makeLinkedSlider(label, path, min, max, step, def, constraint) {
-  const row = makeSlider(label, path, min, max, step, def);
-  const inp = row.querySelector('input');
-  const val = row.querySelector('.val');
-  inp.addEventListener('change', async () => {
-    if (constraint) constraint(parseFloat(inp.value));
-  });
-  return { row, setLinked: (v) => { inp.value = v; val.textContent = v; } };
-}
-
 function makeCategory(title) {
   const h = document.createElement('h2');
   h.textContent = title;
   return h;
 }
 
-function makeCharRange(field, cls, category, dir, min, max, step) {
+function makeCharRange(field, path, min, max, step) {
+  const parts = path.split('.');
   const container = document.createElement('span');
   const inp = document.createElement('input');
   inp.type = 'range';
   inp.min = min; inp.max = max; inp.step = step ?? 1;
-  inp.style.width = '60px';
+  inp.style.width = '50px';
   const val = document.createElement('span');
   val.className = 'val';
-  val.style.width = '28px';
+  val.style.width = '24px';
 
   function current() {
-    let o = charData[cls];
-    for (const p of [category, dir, field]) o = o?.[p];
+    let o = charData;
+    for (const p of parts) o = o?.[p];
     return o;
   }
 
   inp.value = current();
   val.textContent = current();
 
-  let timer;
-  inp.addEventListener('input', () => {
-    const v = parseFloat(inp.value);
-    val.textContent = v;
-    clearTimeout(timer);
-  });
   inp.addEventListener('change', async () => {
     const v = parseFloat(inp.value);
     val.textContent = v;
     const payload = {};
     let o = payload;
-    for (const p of [cls, category, dir, field]) {
-      if (p === field) o[p] = v;
-      else { o[p] = {}; o = o[p]; }
+    for (let i = 0; i < parts.length; i++) {
+      if (i === parts.length - 1) o[parts[i]] = v;
+      else { o[parts[i]] = {}; o = o[parts[i]]; }
     }
     await patchChars(payload);
   });
@@ -209,24 +169,25 @@ function makeCharRange(field, cls, category, dir, min, max, step) {
   return container;
 }
 
-function makeCharCheckbox(field, cls, category, dir) {
+function makeCharCheckbox(field, path) {
   const inp = document.createElement('input');
   inp.type = 'checkbox';
 
   function current() {
-    let o = charData[cls];
-    for (const p of [category, dir, field]) o = o?.[p];
+    let o = charData;
+    for (const p of path.split('.')) o = o?.[p];
     return !!o;
   }
   inp.checked = current();
 
   inp.addEventListener('change', async () => {
     const v = inp.checked;
+    const parts = path.split('.');
     const payload = {};
     let o = payload;
-    for (const p of [cls, category, dir, field]) {
-      if (p === field) o[p] = v;
-      else { o[p] = {}; o = o[p]; }
+    for (let i = 0; i < parts.length; i++) {
+      if (i === parts.length - 1) o[parts[i]] = v;
+      else { o[parts[i]] = {}; o = o[parts[i]]; }
     }
     await patchChars(payload);
   });
@@ -234,214 +195,171 @@ function makeCharCheckbox(field, cls, category, dir) {
   return inp;
 }
 
-function renderCharTable(cls) {
+function renderCharPanel(charId) {
   const panel = document.createElement('div');
-  panel.className = 'char-panel';
-  if (cls === currentClass) panel.classList.add('active');
-  panel.dataset.cls = cls;
+  const ch = charData[charId];
+  if (!ch) return panel;
 
-  const classInfo = charData[cls];
-  if (!classInfo) return panel;
-
-  const renderDirTable = (category, label) => {
-    const h = document.createElement('div');
-    h.className = 'sub-header';
-    h.textContent = `\u25bc ${label}`;
-    panel.appendChild(h);
-
-    const table = document.createElement('table');
-    const thead = document.createElement('thead');
-    thead.innerHTML = '<tr><th>Dir</th><th>Active</th><th>CD</th><th>Dmg</th><th>KB</th><th>W</th><th>H</th><th>Extras</th></tr>';
-    table.appendChild(thead);
-    const tbody = document.createElement('tbody');
-
-    const dirs = ['neutral', 'side', 'up', 'down'];
-    for (const dir of dirs) {
-      const row = document.createElement('tr');
-      const cfgEntry = classInfo[category]?.[dir];
-      if (!cfgEntry) continue;
-
-      const dirCell = document.createElement('td');
-      dirCell.className = 'dir-label';
-      dirCell.textContent = dir;
-      row.appendChild(dirCell);
-
-      for (const field of ['active', 'cd', 'dmg', 'kb', 'w', 'h']) {
-        const cell = document.createElement('td');
-        const val = cfgEntry[field];
-        const range = makeCharRange(field, cls, category, dir, 0, 60, 1);
-        range.querySelector('input').value = val;
-        range.querySelector('.val').textContent = val;
-        cell.appendChild(range);
-        row.appendChild(cell);
-      }
-
-      const extrasCell = document.createElement('td');
-      extrasCell.className = 'extras-cell';
-
-      if (category === 'attacks') {
-        if (cfgEntry.armor !== undefined) {
-          const cb = makeCharCheckbox('armor', cls, category, dir);
-          const lbl = document.createElement('label');
-          lbl.textContent = 'Armor';
-          extrasCell.appendChild(lbl);
-          extrasCell.appendChild(cb);
-        }
-        if (cfgEntry.lunge !== undefined) {
-          const rng = makeCharRange('lunge', cls, category, dir, 0, 20, 0.5);
-          const lbl = document.createElement('label');
-          lbl.textContent = 'Lunge';
-          extrasCell.appendChild(lbl);
-          extrasCell.appendChild(rng);
-        }
-        if (cfgEntry.spawnsProjectile !== undefined) {
-          const cb = makeCharCheckbox('spawnsProjectile', cls, category, dir);
-          const lbl = document.createElement('label');
-          lbl.textContent = 'Proj';
-          extrasCell.appendChild(lbl);
-          extrasCell.appendChild(cb);
-          for (const pf of ['projectileVx', 'projectileW', 'projectileH', 'projectileDmg', 'projectileKb', 'projectileLifetime']) {
-            const rng = makeCharRange(pf, cls, category, dir, 0, 60, 1);
-            const plbl = document.createElement('label');
-            plbl.textContent = pf.replace('projectile', '');
-            extrasCell.appendChild(plbl);
-            extrasCell.appendChild(rng);
-          }
-        }
-      }
-      if (category === 'specials') {
-        if (cfgEntry.armor !== undefined) {
-          const cb = makeCharCheckbox('armor', cls, category, dir);
-          const lbl = document.createElement('label');
-          lbl.textContent = 'Armor';
-          extrasCell.appendChild(lbl);
-          extrasCell.appendChild(cb);
-        }
-        if (cfgEntry.spawnsProjectile !== undefined) {
-          const cb = makeCharCheckbox('spawnsProjectile', cls, category, dir);
-          const lbl = document.createElement('label');
-          lbl.textContent = 'Proj';
-          extrasCell.appendChild(lbl);
-          extrasCell.appendChild(cb);
-          for (const pf of ['projectileVx', 'projectileW', 'projectileH', 'projectileDmg', 'projectileKb', 'projectileLifetime']) {
-            const rng = makeCharRange(pf, cls, category, dir, 0, 60, 1);
-            const plbl = document.createElement('label');
-            plbl.textContent = pf.replace('projectile', '');
-            extrasCell.appendChild(plbl);
-            extrasCell.appendChild(rng);
-          }
-        }
-      }
-
-      if (!extrasCell.children.length) {
-        extrasCell.textContent = '\u2014';
-      }
-      row.appendChild(extrasCell);
-      tbody.appendChild(row);
-    }
-
-    table.appendChild(tbody);
-    panel.appendChild(table);
+  const addSlider = (label, field, min, max, step) => {
+    const row = document.createElement('div');
+    row.className = 'row';
+    const lab = document.createElement('label');
+    lab.textContent = label;
+    row.appendChild(lab);
+    row.appendChild(makeCharRange(field, `${charId}.${field}`, min, max, step));
+    panel.appendChild(row);
   };
 
-  renderDirTable('attacks', 'Attacks');
-  renderDirTable('specials', 'Specials');
+  /* Stats */
+  panel.appendChild(makeCategory('Stats'));
+  addSlider('Move Speed', 'moveSpeed', 0, 10, 0.5);
+  addSlider('Jump Velocity', 'jumpVelocity', -20, 0, 0.5);
+  addSlider('Weight', 'weight', 0.2, 2, 0.05);
+  addSlider('Damage Dealt Mult', 'dmgDealtMult', 0, 3, 0.1);
+  addSlider('Damage Taken Mult', 'dmgTakenMult', 0, 3, 0.1);
+  addSlider('Stocks', 'stocks', 1, 9, 1);
+  addSlider('Jump Count', 'jumpCount', 1, 5, 1);
+
+  /* Movement */
+  panel.appendChild(makeCategory('Movement'));
+  addSlider('Dash Speed', 'dashSpeed', 0, 30, 1);
+  addSlider('Dash Duration', 'dashDuration', 1, 20, 1);
+  addSlider('Fast Fall Boost', 'fastFallBoost', 0, 15, 1);
+  addSlider('Max Fall Speed', 'maxFallSpeed', 5, 30, 1);
+
+  /* Special Meter */
+  panel.appendChild(makeCategory('Special Meter'));
+  addSlider('Max Meter', 'specialMeter.maxMeter', 10, 300, 5);
+  addSlider('Meter Gain (dealt)', 'specialMeter.meterGainMult', 0, 3, 0.1);
+  addSlider('Meter Gain (taken)', 'specialMeter.meterDamageTakenMult', 0, 3, 0.1);
+  addSlider('Meter Drain Per Use', 'specialMeter.meterDrain', 5, 100, 5);
+
+  /* Attacks */
+  panel.appendChild(makeCategory('Attacks'));
+  const atkTable = document.createElement('table');
+  atkTable.innerHTML = '<thead><tr><th>Dir</th><th>Active</th><th>CD</th><th>Dmg</th><th>KB</th><th>W</th><th>H</th><th>Extras</th></tr></thead>';
+  const atkTbody = document.createElement('tbody');
+  for (const dir of ['neutral', 'side', 'up', 'down']) {
+    const a = ch.attacks?.[dir];
+    if (!a) continue;
+    const row = document.createElement('tr');
+    row.innerHTML = `<td class="dir-label">${dir}</td>`;
+    for (const f of ['active', 'cd', 'dmg', 'kb', 'w', 'h']) {
+      const cell = document.createElement('td');
+      cell.appendChild(makeCharRange(f, `${charId}.attacks.${dir}.${f}`, 0, 60, 1));
+      row.appendChild(cell);
+    }
+    const ex = document.createElement('td');
+    ex.className = 'extras-cell';
+    if (a.armor !== undefined) {
+      ex.appendChild(document.createTextNode('Armor '));
+      ex.appendChild(makeCharCheckbox('armor', `${charId}.attacks.${dir}.armor`));
+    }
+    if (a.lunge !== undefined) {
+      ex.appendChild(document.createTextNode('Lunge '));
+      ex.appendChild(makeCharRange('lunge', `${charId}.attacks.${dir}.lunge`, 0, 20, 0.5));
+    }
+    if (a.spawnsProjectile !== undefined) {
+      ex.appendChild(document.createTextNode('Proj '));
+      ex.appendChild(makeCharCheckbox('spawnsProjectile', `${charId}.attacks.${dir}.spawnsProjectile`));
+      for (const pf of ['projectileVx', 'projectileW', 'projectileH', 'projectileDmg', 'projectileKb', 'projectileLifetime']) {
+        ex.appendChild(document.createElement('br'));
+        ex.appendChild(document.createTextNode(pf.replace('projectile', '') + ' '));
+        ex.appendChild(makeCharRange(pf, `${charId}.attacks.${dir}.${pf}`, 0, 60, 1));
+      }
+    }
+    if (!ex.children.length) ex.textContent = '\u2014';
+    row.appendChild(ex);
+    atkTbody.appendChild(row);
+  }
+  atkTable.appendChild(atkTbody);
+  panel.appendChild(atkTable);
+
+  /* Specials */
+  panel.appendChild(makeCategory('Specials'));
+  const spcTable = document.createElement('table');
+  spcTable.innerHTML = '<thead><tr><th>Dir</th><th>Active</th><th>CD</th><th>Dmg</th><th>KB</th><th>W</th><th>H</th><th>Extras</th></tr></thead>';
+  const spcTbody = document.createElement('tbody');
+  for (const dir of ['neutral', 'side', 'up', 'down']) {
+    const a = ch.specials?.[dir];
+    if (!a) continue;
+    const row = document.createElement('tr');
+    row.innerHTML = `<td class="dir-label">${dir}</td>`;
+    for (const f of ['active', 'cd', 'dmg', 'kb', 'w', 'h']) {
+      const cell = document.createElement('td');
+      cell.appendChild(makeCharRange(f, `${charId}.specials.${dir}.${f}`, 0, 60, 1));
+      row.appendChild(cell);
+    }
+    const ex = document.createElement('td');
+    ex.className = 'extras-cell';
+    if (a.armor !== undefined) {
+      ex.appendChild(document.createTextNode('Armor '));
+      ex.appendChild(makeCharCheckbox('armor', `${charId}.specials.${dir}.armor`));
+    }
+    if (a.spawnsProjectile !== undefined) {
+      ex.appendChild(document.createTextNode('Proj '));
+      ex.appendChild(makeCharCheckbox('spawnsProjectile', `${charId}.specials.${dir}.spawnsProjectile`));
+      for (const pf of ['projectileVx', 'projectileW', 'projectileH', 'projectileDmg', 'projectileKb', 'projectileLifetime']) {
+        ex.appendChild(document.createElement('br'));
+        ex.appendChild(document.createTextNode(pf.replace('projectile', '') + ' '));
+        ex.appendChild(makeCharRange(pf, `${charId}.specials.${dir}.${pf}`, 0, 60, 1));
+      }
+    }
+    if (!ex.children.length) ex.textContent = '\u2014';
+    row.appendChild(ex);
+    spcTbody.appendChild(row);
+  }
+  spcTable.appendChild(spcTbody);
+  panel.appendChild(spcTable);
 
   return panel;
-}
-
-function renderCharSection() {
-  const section = document.createElement('div');
-
-  const header = document.createElement('h2');
-  header.textContent = 'Characters';
-  section.appendChild(header);
-
-  const tabs = document.createElement('div');
-  tabs.className = 'tabs';
-
-  const classNames = Object.keys(charData);
-  const panels = [];
-
-  for (const cls of classNames) {
-    const tab = document.createElement('button');
-    tab.className = 'tab';
-    tab.textContent = cls.charAt(0).toUpperCase() + cls.slice(1);
-    if (cls === currentClass) tab.classList.add('active');
-    tab.addEventListener('click', () => {
-      currentClass = cls;
-      $$('.tab').forEach(t => t.classList.remove('active'));
-      tab.classList.add('active');
-      $$('.char-panel').forEach(p => p.classList.remove('active'));
-      const panel = panels.find(p => p.dataset.cls === cls);
-      if (panel) panel.classList.add('active');
-    });
-    tabs.appendChild(tab);
-
-    const panel = renderCharTable(cls);
-    panels.push(panel);
-  }
-
-  section.appendChild(tabs);
-  for (const p of panels) section.appendChild(p);
-  return section;
 }
 
 function render() {
   const app = $('#app');
   app.innerHTML = '';
 
-  /* Physics */
-  app.appendChild(makeCategory('Physics'));
-  app.appendChild(makeSlider('Gravity', 'GRAVITY', 0, 2, 0.05, 0.6));
-  app.appendChild(makeSlider('Friction', 'FRICTION', 0, 1, 0.01, 0.85));
-  app.appendChild(makeSlider('Move Speed', 'MOVE_SPEED', 0, 15, 0.5, 4));
-  app.appendChild(makeSlider('Jump Velocity', 'JUMP_VELOCITY', -20, 0, 0.5, -10));
-  app.appendChild(makeSlider('Min Jump Velocity', 'MIN_JUMP_VELOCITY', -20, 0, 0.5, -13));
-
-  /* Shield */
-  app.appendChild(makeCategory('Shield'));
+  /* Global: gravity + friction + shield */
+  app.appendChild(makeCategory('Global'));
+  app.appendChild(makeSlider('Gravity', 'GRAVITY', 0, 2, 0.05));
+  app.appendChild(makeSlider('Friction', 'FRICTION', 0, 1, 0.01));
   const sh = document.createElement('div'); sh.className = 'sub';
-  sh.appendChild(makeSlider('Max Health', 'SHIELD.maxHealth', 10, 300, 5));
-  sh.appendChild(makeSlider('Base Reduction', 'SHIELD.baseReduction', 0, 1, 0.05));
-  sh.appendChild(makeSlider('Drain Rate (per tick)', 'SHIELD.drainRate', 0, 5, 0.5));
+  sh.appendChild(makeSlider('Shield Max Health', 'SHIELD.maxHealth', 10, 300, 5));
+  sh.appendChild(makeSlider('Shield Base Reduction', 'SHIELD.baseReduction', 0, 1, 0.05));
+  sh.appendChild(makeSlider('Shield Drain Rate', 'SHIELD.drainRate', 0, 5, 0.5));
   app.appendChild(sh);
 
-  /* Special Meter */
-  app.appendChild(makeCategory('Special Meter'));
-  const sp = document.createElement('div'); sp.className = 'sub';
-  sp.appendChild(makeSlider('Max Meter', 'SPECIAL.maxMeter', 10, 300, 5));
-  sp.appendChild(makeSlider('Meter Gain (dealt dmg)', 'SPECIAL.meterGainMult', 0, 3, 0.1));
-  sp.appendChild(makeSlider('Meter Gain (taken dmg)', 'SPECIAL.meterDamageTakenMult', 0, 3, 0.1));
-  sp.appendChild(makeSlider('Meter Drain Per Use', 'SPECIAL.meterDrain', 5, 100, 5));
-  app.appendChild(sp);
-
-  /* Movement */
-  app.appendChild(makeCategory('Movement'));
-  app.appendChild(makeSlider('Dash Speed', 'DASH_SPEED', 0, 30, 1));
-  app.appendChild(makeSlider('Dash Duration (ticks)', 'DASH_DURATION', 1, 20, 1));
-  app.appendChild(makeSlider('Fast Fall Boost', 'FAST_FALL_BOOST', 0, 15, 1));
-  app.appendChild(makeSlider('Max Fall Speed', 'MAX_FALL_SPEED', 5, 30, 1));
-
-  /* Blast Zones */
-  app.appendChild(makeCategory('Blast Zones'));
-  app.appendChild(makeSlider('Left', 'BLAST_ZONE_LEFT', -300, 100, 10));
-  app.appendChild(makeSlider('Right', 'BLAST_ZONE_RIGHT', 700, 1100, 10));
-  app.appendChild(makeSlider('Top', 'BLAST_ZONE_TOP', -300, 0, 10));
-  app.appendChild(makeSlider('Bottom', 'BLAST_ZONE_BOTTOM', 500, 900, 10));
-
   /* Characters */
-  if (Object.keys(charData).length > 0) {
-    app.appendChild(renderCharSection());
+  const charIds = Object.keys(charData);
+  if (charIds.length === 0) return;
+
+  app.appendChild(makeCategory('Character'));
+  const sel = document.createElement('select');
+  for (const id of charIds) {
+    const opt = document.createElement('option');
+    opt.value = id;
+    opt.textContent = charData[id].name || id;
+    if (id === currentChar) opt.selected = true;
+    sel.appendChild(opt);
   }
+  const panel = document.createElement('div');
+  panel.id = 'charPanel';
+  panel.appendChild(renderCharPanel(currentChar));
+
+  sel.addEventListener('change', () => {
+    currentChar = sel.value;
+    panel.innerHTML = '';
+    panel.appendChild(renderCharPanel(currentChar));
+  });
+
+  app.appendChild(sel);
+  app.appendChild(panel);
 
   /* Reset */
   const reset = document.createElement('button');
   reset.id = 'resetBtn';
   reset.textContent = 'Reset to Defaults';
-  reset.addEventListener('click', async () => {
-    location.reload();
-  });
+  reset.addEventListener('click', () => location.reload());
   app.appendChild(reset);
 }
 

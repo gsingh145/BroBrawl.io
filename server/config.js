@@ -2,24 +2,9 @@ module.exports = {
   TICK_RATE: 50,
   GRAVITY: 0.55,
   FRICTION: 0.85,
-  MOVE_SPEED: 4.5,
-  JUMP_VELOCITY: -13,
   MIN_JUMP_VELOCITY: -13,
   PLAYER_W: 40,
   PLAYER_H: 60,
-
-  SPECIAL: {
-    maxMeter: 100,
-    meterGainMult: 1.0,
-    meterDamageTakenMult: 0.33,
-    meterDrain: 25,
-  },
-
-  DASH_SPEED: 14,
-  DASH_DURATION: 6,
-
-  FAST_FALL_BOOST: 5,
-  MAX_FALL_SPEED: 15,
 
   BLAST_ZONE_LEFT: -120,
   BLAST_ZONE_RIGHT: 920,

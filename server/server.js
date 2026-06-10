@@ -5,9 +5,9 @@ const WebSocket = require("ws");
 const { PlayerManager } = require("./PlayerManager");
 const C = require("./config");
 const CHARACTERS = require("./characters");
-const CLASSES = CHARACTERS.CLASSES;
 
 const CONFIG_STATE_PATH = path.join(__dirname, "config-state.json");
+const CHAR_STATE_PATH = path.join(__dirname, "characters-state.json");
 
 function deepMerge(target, source) {
     for (const [key, value] of Object.entries(source)) {
@@ -19,50 +19,6 @@ function deepMerge(target, source) {
     }
 }
 
-function serializeClasses(classes) {
-    function serializeAttacks(attacks) {
-        const dirs = ["neutral", "side", "up", "down"];
-        const lines = dirs.map(dir => {
-            const a = attacks[dir];
-            if (!a) return `      ${dir}: ATK({})`;
-            const entries = Object.entries(a).filter(([, v]) => v !== undefined && v !== false);
-            const inner = entries.map(([k, v]) => {
-                if (typeof v === "string") return `${k}: "${v}"`;
-                return `${k}: ${v}`;
-            }).join(", ");
-            return `      ${dir}: ATK({ ${inner} })`;
-        });
-        return "{\n" + lines.join(",\n") + "\n      }";
-    }
-
-    const classNames = Object.keys(classes);
-    const classEntries = classNames.map(name => {
-        const cls = classes[name];
-        const fields = ["moveSpeed", "jumpVelocity", "weight", "dmgDealtMult", "dmgTakenMult", "stocks", "jumpCount"];
-        const statLine = fields.map(f => `${f}: ${cls[f]}`).join(", ");
-        const attacks = serializeAttacks(cls.attacks);
-        const specials = serializeAttacks(cls.specials);
-        return `  ${name}: {\n    ${statLine},\n    attacks: ${attacks},\n    specials: ${specials},\n  }`;
-    });
-
-    return `const ATK = (o) => ({ active: 3, cd: 5, dmg: 3, kb: 5, w: 20, h: 20, ...o });
-
-const CLASSES = {
-${classEntries.join(",\n")}
-};
-
-const CHARACTERS = {
-  sensei_waisas: { id: 'sensei_waisas', ...CLASSES.sword },
-  brawn_boy:    { id: 'brawn_boy',    ...CLASSES.heavy },
-  the_damned:   { id: 'the_damned',   ...CLASSES.zoner },
-  nam_saiyan:   { id: 'nam_saiyan',   ...CLASSES.combo },
-};
-
-module.exports = CHARACTERS;
-module.exports.CLASSES = CLASSES;
-`;
-}
-
 try {
     if (fs.existsSync(CONFIG_STATE_PATH)) {
         const saved = JSON.parse(fs.readFileSync(CONFIG_STATE_PATH, "utf-8"));
@@ -71,6 +27,16 @@ try {
     }
 } catch (e) {
     console.warn("Could not load config-state.json, using defaults:", e.message);
+}
+
+try {
+    if (fs.existsSync(CHAR_STATE_PATH)) {
+        const saved = JSON.parse(fs.readFileSync(CHAR_STATE_PATH, "utf-8"));
+        deepMerge(CHARACTERS, saved);
+        console.log("Loaded saved character config from characters-state.json");
+    }
+} catch (e) {
+    console.warn("Could not load characters-state.json:", e.message);
 }
 
 const PORT = process.env.PORT || 8080;
@@ -104,7 +70,6 @@ const server = http.createServer((req, res) => {
                         }
                     }
                 }
-                if (C.JUMP_VELOCITY < C.MIN_JUMP_VELOCITY) C.JUMP_VELOCITY = C.MIN_JUMP_VELOCITY;
                 try {
                     fs.writeFileSync(CONFIG_STATE_PATH, JSON.stringify(C, null, 2));
                 } catch (e) {
@@ -120,7 +85,7 @@ const server = http.createServer((req, res) => {
 
     /* ── Characters API ── */
     if (req.url === "/api/characters" && req.method === "GET") {
-        return json(CLASSES);
+        return json(CHARACTERS);
     }
     if (req.url === "/api/characters" && req.method === "POST") {
         let body = "";
@@ -128,18 +93,11 @@ const server = http.createServer((req, res) => {
         req.on("end", () => {
             try {
                 const updates = JSON.parse(body);
-                deepMerge(CLASSES, updates);
-
-                const CHAR_SRC_PATH = path.join(__dirname, "characters.js");
+                deepMerge(CHARACTERS, updates);
                 try {
-                    if (fs.existsSync(CHAR_SRC_PATH)) {
-                        fs.copyFileSync(CHAR_SRC_PATH, CHAR_SRC_PATH + ".bak");
-                    }
-                    const src = serializeClasses(CLASSES);
-                    fs.writeFileSync(CHAR_SRC_PATH, src);
-                    console.log("Saved character config to characters.js (backup at characters.js.bak)");
+                    fs.writeFileSync(CHAR_STATE_PATH, JSON.stringify(CHARACTERS, null, 2));
                 } catch (e) {
-                    console.warn("Could not save characters.js:", e.message);
+                    console.warn("Could not save characters-state.json:", e.message);
                 }
                 return json({ ok: true });
             } catch {
@@ -236,7 +194,8 @@ function handleMessage(ws, raw) {
         }
         case "fastFall": {
             if (!player.onGround) {
-                player.vy = Math.min(C.MAX_FALL_SPEED, player.vy + C.FAST_FALL_BOOST);
+                const s = getCharStats(player);
+                player.vy = Math.min(s.maxFallSpeed, player.vy + s.fastFallBoost);
             }
             break;
         }
@@ -272,7 +231,8 @@ function handleMessage(ws, raw) {
                 const stats = getCharStats(player);
                 const scfg = stats.specials[dir];
                 if (!scfg) break;
-                const drain = Math.min(C.SPECIAL.meterDrain, player.specialMeter);
+                const sm = getCharStats(player).specialMeter;
+                const drain = Math.min(sm.meterDrain, player.specialMeter);
                 player.specialMeterUsed = player.specialMeter;
                 player.specialMeter -= drain;
                 player.specialAttacking = true;
@@ -295,11 +255,12 @@ function handleMessage(ws, raw) {
         }
         case "dash": {
             if (!player.dashing) {
+                const s = getCharStats(player);
                 const dashDir = msg.dir;
-                player.vx = dashDir * C.DASH_SPEED;
+                player.vx = dashDir * s.dashSpeed;
                 player.facing = dashDir;
                 player.dashing = true;
-                player.dashTimer = C.DASH_DURATION;
+                player.dashTimer = s.dashDuration;
             }
             break;
         }
@@ -344,7 +305,7 @@ function die(p) {
 }
 
 function getCharStats(p) {
-    return CHARACTERS[p.character] || CHARACTERS.blade;
+    return CHARACTERS[p.character] || CHARACTERS.sensei_waisas;
 }
 
 function updatePlayer(p) {
@@ -436,7 +397,8 @@ function checkCombat() {
             ? (atkStats.specials[sDir] || atkStats.specials.neutral)
             : (atkStats.attacks[sDir] || atkStats.attacks.neutral);
         const hitbox = getAttackHitbox(attacker, sDir, cfg);
-        const rawRatio = isSpecial ? (attacker.specialMeterUsed / C.SPECIAL.maxMeter) : 1;
+        const atkSM = atkStats.specialMeter || { maxMeter: 100, meterGainMult: 1.0, meterDamageTakenMult: 0.33, meterDrain: 25 };
+        const rawRatio = isSpecial ? (attacker.specialMeterUsed / atkSM.maxMeter) : 1;
         const tier = isSpecial ? Math.max(1, Math.ceil(rawRatio / 0.25)) : 4;
         const meterRatio = Math.min(1, tier * 0.25);
         const rawDmg = Math.max(1, Math.floor(cfg.dmg * meterRatio));
@@ -475,10 +437,12 @@ function checkCombat() {
             target.attacking = false;
             target.specialAttacking = false;
 
-            const meterGain = Math.floor(dmg * (isSpecial ? 0 : C.SPECIAL.meterGainMult));
-            attacker.specialMeter = Math.min(C.SPECIAL.maxMeter, attacker.specialMeter + meterGain);
-            const takenGain = Math.floor(dmg * C.SPECIAL.meterDamageTakenMult);
-            target.specialMeter = Math.min(C.SPECIAL.maxMeter, target.specialMeter + takenGain);
+            const defStatsForMeter = getCharStats(target);
+            const defSM = defStatsForMeter.specialMeter || { maxMeter: 100, meterGainMult: 1.0, meterDamageTakenMult: 0.33, meterDrain: 25 };
+            const meterGain = Math.floor(dmg * (isSpecial ? 0 : atkSM.meterGainMult));
+            attacker.specialMeter = Math.min(atkSM.maxMeter, attacker.specialMeter + meterGain);
+            const takenGain = Math.floor(dmg * defSM.meterDamageTakenMult);
+            target.specialMeter = Math.min(defSM.maxMeter, target.specialMeter + takenGain);
         }
     }
 }
@@ -542,7 +506,7 @@ function tick() {
     updateProjectiles();
 
     const state = pm.getAllPlayerStates();
-    broadcast({ type: "GAME_STATE", players: state, projectiles: projectiles.map(p => ({ id: p.id, x: p.x, y: p.y, w: p.w, h: p.h })) });
+    broadcast({ type: "GAME_STATE", players: state, projectiles: projectiles.map(p => ({ id: p.id, x: p.x, y: p.y, w: p.w, h: p.h })), platforms: C.PLATFORMS });
 }
 
 /* ── WebSocket ── */

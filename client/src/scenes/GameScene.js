@@ -40,7 +40,15 @@ export default class GameScene extends Phaser.Scene {
     this.projectileGfx = this.add.graphics();
     this.projectileGfx.setDepth(30);
 
+    this.platformGfx = this.add.graphics();
+    this.platformGfx.setDepth(10);
+    this.platformSurf = this.add.graphics();
+    this.platformSurf.setDepth(11);
+    this.platformDecor = this.add.graphics();
+    this.platformDecor.setDepth(9);
+
     this.prevStates = {};
+    this.serverPlatforms = null;
     initSounds();
     startMusic('battle');
 
@@ -464,15 +472,6 @@ export default class GameScene extends Phaser.Scene {
     const decor = this.add.graphics();
     decor.setDepth(9);
 
-    this.platformRects = [
-      { x: 350, y: 430, w: 180, h: 16 },
-      { x: 550, y: 370, w: 120, h: 16 },
-      { x: 250, y: 310, w: 140, h: 16 },
-      { x: 400, y: 240, w: 100, h: 16 },
-      { x: 550, y: 170, w: 110, h: 16 },
-      { x: 200, y: 150, w: 80, h: 16 },
-    ];
-
     const groundTop = 474;
     gfx.fillStyle(0x1a1410);
     gfx.fillRect(0, groundTop, 800, 40);
@@ -540,7 +539,19 @@ export default class GameScene extends Phaser.Scene {
     decor.fillRect(690, groundTop - 60, 6, 60);
     decor.fillRect(660, groundTop - 68, 36, 8);
 
-    // Floating platform styles
+    // Ground detail: grass edge shadow
+    decor.fillStyle(0x3a5a2a, 0.2);
+    for (let i = 0; i < 40; i++) {
+      const gx = Math.random() * 800;
+      decor.fillEllipse(gx, groundTop, 4 + Math.random() * 6, 2);
+    }
+  }
+
+  renderFloatingPlatforms(platforms) {
+    this.platformGfx.clear();
+    this.platformSurf.clear();
+    this.platformDecor.clear();
+
     const styles = [
       { edge: 0x8a7a68, base: 0x6b5a48, mid: 0x5a4a3a, dark: 0x3a2e24, crack: 0x4a3a2a },
       { edge: 0x7a8a78, base: 0x5a6a58, mid: 0x4a5a48, dark: 0x2a3a28, crack: 0x3a4a38 },
@@ -550,65 +561,61 @@ export default class GameScene extends Phaser.Scene {
       { edge: 0x7a7a68, base: 0x5a5a48, mid: 0x4a4a38, dark: 0x2a2a1c, crack: 0x3a3a28 },
     ];
 
-    for (let pi = 0; pi < this.platformRects.length; pi++) {
-      const p = this.platformRects[pi];
-      const s = styles[pi % styles.length];
-      const left = p.x - p.w / 2;
-      const top = p.y - p.h / 2;
+    for (let pi = 1; pi < platforms.length; pi++) {
+      const plat = platforms[pi];
+      const s = styles[(pi - 1) % styles.length];
+      const left = plat.left;
+      const top = plat.surfaceY;
+      const pw = plat.right - plat.left;
+      const ph = 16;
 
-      gfx.fillStyle(0x000000, 0.2);
-      gfx.fillRoundedRect(left + 3, top + 3, p.w, p.h, 4);
+      this.platformGfx.fillStyle(0x000000, 0.2);
+      this.platformGfx.fillRoundedRect(left + 3, top + 3, pw, ph, 4);
 
-      gfx.fillStyle(s.dark);
-      gfx.fillRoundedRect(left, top, p.w, p.h, 4);
+      this.platformGfx.fillStyle(s.dark);
+      this.platformGfx.fillRoundedRect(left, top, pw, ph, 4);
 
-      gfx.fillStyle(s.mid);
-      gfx.fillRoundedRect(left + 1, top + 1, p.w - 2, p.h - 2, 3);
+      this.platformGfx.fillStyle(s.mid);
+      this.platformGfx.fillRoundedRect(left + 1, top + 1, pw - 2, ph - 2, 3);
 
-      gfx.fillStyle(s.base);
-      gfx.fillRoundedRect(left + 1, top + 1, p.w - 2, p.h / 2, { tl: 3, tr: 3, bl: 0, br: 0 });
+      this.platformGfx.fillStyle(s.base);
+      this.platformGfx.fillRoundedRect(left + 1, top + 1, pw - 2, ph / 2, { tl: 3, tr: 3, bl: 0, br: 0 });
 
-      gfx.fillStyle(s.crack, 0.4);
-      gfx.fillRect(left + 1, top + p.h / 2, p.w - 2, 1);
+      this.platformGfx.fillStyle(s.crack, 0.4);
+      this.platformGfx.fillRect(left + 1, top + ph / 2, pw - 2, 1);
 
-      // Unique rock grain
-      const grainCount = 2 + Math.floor(p.w / 30);
+      const grainCount = 2 + Math.floor(pw / 30);
       for (let i = 0; i < grainCount; i++) {
-        const gx = left + 6 + Math.random() * (p.w - 12);
-        const gy = top + 4 + Math.random() * (p.h - 8);
-        gfx.fillStyle(s.edge, 0.15);
-        gfx.fillCircle(gx, gy, 1.5 + Math.random() * 2);
+        const gx = left + 6 + Math.random() * (pw - 12);
+        const gy = top + 4 + Math.random() * (ph - 8);
+        this.platformGfx.fillStyle(s.edge, 0.15);
+        this.platformGfx.fillCircle(gx, gy, 1.5 + Math.random() * 2);
       }
 
-      // Small crack lines
       if (pi % 2 === 0) {
-        gfx.lineStyle(1, s.dark, 0.3);
-        const cx = left + p.w * 0.3 + Math.random() * p.w * 0.4;
-        gfx.lineBetween(cx, top + 3, cx + 4, top + p.h - 3);
+        this.platformGfx.lineStyle(1, s.dark, 0.3);
+        const cx = left + pw * 0.3 + Math.random() * pw * 0.4;
+        this.platformGfx.lineBetween(cx, top + 3, cx + 4, top + ph - 3);
       }
 
-      surf.fillStyle(s.edge, 0.45);
-      surf.fillRoundedRect(left + 3, top + 1, p.w - 6, 3, 2);
+      this.platformSurf.fillStyle(s.edge, 0.45);
+      this.platformSurf.fillRoundedRect(left + 3, top + 1, pw - 6, 3, 2);
 
-      // Moss on lower platforms
-      if (p.y > 300) {
-        decor.fillStyle(0x3a5a2a, 0.25);
+      if (top > 300) {
+        this.platformDecor.fillStyle(0x3a5a2a, 0.25);
         for (let i = 0; i < 3; i++) {
-          const mx = left + 8 + Math.random() * (p.w - 16);
-          decor.fillEllipse(mx, top + p.h - 2, 6 + Math.random() * 4, 3);
+          const mx = left + 8 + Math.random() * (pw - 16);
+          this.platformDecor.fillEllipse(mx, top + ph - 2, 6 + Math.random() * 4, 3);
         }
       }
-    }
-
-    // Ground detail: grass edge shadow
-    decor.fillStyle(0x3a5a2a, 0.2);
-    for (let i = 0; i < 40; i++) {
-      const gx = Math.random() * 800;
-      decor.fillEllipse(gx, groundTop, 4 + Math.random() * 6, 2);
     }
   }
 
   handleState(msg) {
+    if (msg.platforms && msg.platforms !== this.serverPlatforms) {
+      this.serverPlatforms = msg.platforms;
+      this.renderFloatingPlatforms(msg.platforms);
+    }
     const activeIds = new Set(msg.players.map(s => s.id));
 
     for (const id of Object.keys(this.playerMap)) {
@@ -904,6 +911,9 @@ export default class GameScene extends Phaser.Scene {
     stopMusic();
     this.stockGfx?.destroy();
     this.projectileGfx?.destroy();
+    this.platformGfx?.destroy();
+    this.platformSurf?.destroy();
+    this.platformDecor?.destroy();
     Object.values(this.hudTexts).forEach(t => t?.destroy());
     this.hudTexts = {};
   }

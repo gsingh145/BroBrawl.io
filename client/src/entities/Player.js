@@ -393,7 +393,7 @@ export default class Player {
     const bright = Phaser.Display.Color.IntegerToColor(col);
     const color = { red: bright.red, green: bright.green, blue: bright.blue };
     const facing = this.facing === 'right' ? 1 : -1;
-    const cls = this.charConfig.class || 'sword';
+    const id = this.charConfig.id || 'sensei_waisas';
 
     if (this.specialAttacking) {
       const dir = this.specialAttackDir || 'neutral';
@@ -405,8 +405,8 @@ export default class Player {
       const dir = this.attackDir || 'neutral';
       const cfg = this.getAttackCfg(dir);
       this.attackGfx.clear();
-      const dirFx = ATK_FX[cls];
-      const fn = dirFx?.[dir] || ATK_FX.sword.side;
+      const dirFx = ATK_FX[id];
+      const fn = dirFx?.[dir] || ATK_FX.sensei_waisas.side;
       fn(this.attackGfx, x, y, cfg, facing, color);
       this.attackGfx.setVisible(true);
     } else {
@@ -433,8 +433,8 @@ function hexCol(c) {
 /* ── Attack visuals ── */
 const ATK_FX = {};
 
-/* Heavy */
-ATK_FX.heavy = {
+/* Brawn Boy */
+ATK_FX.brawn_boy = {
   neutral(g, x, y, cfg, f, c) {
     const cx = x + f * 20;
     const r = Math.max(4, cfg.w / 2);
@@ -481,8 +481,8 @@ ATK_FX.heavy = {
   },
 };
 
-/* Zoner */
-ATK_FX.zoner = {
+/* The Damned */
+ATK_FX.the_damned = {
   neutral(g, x, y, cfg, f, c) {
     const cx = x + f * 20;
     const hw = Math.max(4, cfg.w / 2);
@@ -533,8 +533,8 @@ ATK_FX.zoner = {
   },
 };
 
-/* Combo */
-ATK_FX.combo = {
+/* Nam Saiyan */
+ATK_FX.nam_saiyan = {
   neutral(g, x, y, cfg, f, c) {
     const cx = x + f * 20;
     const r = Math.max(3, cfg.w / 3);
@@ -577,8 +577,8 @@ ATK_FX.combo = {
   },
 };
 
-/* Sword */
-ATK_FX.sword = {
+/* Sensei Waisas */
+ATK_FX.sensei_waisas = {
   neutral(g, x, y, cfg, f, c) {
     const cx = x + f * 20;
     const r = Math.max(4, cfg.w / 2);
