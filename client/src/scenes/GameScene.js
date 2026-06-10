@@ -646,7 +646,8 @@ export default class GameScene extends Phaser.Scene {
       const prev = this.prevStates[state.id];
       if (prev && !this.winnerId) {
         if ((state.damage || 0) > (prev.damage || 0)) playSound('hit');
-        if (state.attacking && !prev.attacking) playSound('attack');
+        if (state.attackStartup != null && state.attackStartup <= 0 && (prev.attackStartup || 0) > 0) playSound('attack');
+        if (state.specialAttackStartup != null && state.specialAttackStartup <= 0 && (prev.specialAttackStartup || 0) > 0) playSound('attack');
         if (state.shielding && !prev.shielding) playSound('shield');
         if ((state.stocks ?? 3) < (prev.stocks ?? 3) && (state.stocks ?? 3) <= 0) playSound('ko');
         if ((state.stocks ?? 3) < (prev.stocks ?? 3) && (state.stocks ?? 3) > 0) playSound('die');

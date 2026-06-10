@@ -214,7 +214,8 @@ function handleMessage(ws, raw) {
                 if (!cfg) break;
                 player.attacking = true;
                 player.attackDir = dir;
-                player.attackTimer = cfg.active;
+                player.attackStartup = cfg.startup;
+                player.attackActiveTimer = cfg.active;
                 player.attackCooldown = cfg.cd;
                 if (cfg.lunge) {
                     player.vx = player.facing * cfg.lunge;
@@ -237,7 +238,8 @@ function handleMessage(ws, raw) {
                 player.specialMeter -= drain;
                 player.specialAttacking = true;
                 player.specialAttackDir = dir;
-                player.specialAttackTimer = scfg.active;
+                player.specialAttackStartup = scfg.startup;
+                player.specialAttackActiveTimer = scfg.active;
                 player.specialAttackCooldown = scfg.cd;
                 if (scfg.spawnsProjectile) {
                     spawnProjectile(player, scfg);
@@ -310,10 +312,22 @@ function getCharStats(p) {
 }
 
 function updatePlayer(p) {
-    if (p.attackTimer > 0) p.attackTimer--;
-    else p.attacking = false;
-    if (p.specialAttackTimer > 0) p.specialAttackTimer--;
-    else p.specialAttacking = false;
+    if (p.attacking) {
+        if (p.attackStartup > 0) {
+            p.attackStartup--;
+        } else if (p.attackActiveTimer > 0) {
+            p.attackActiveTimer--;
+            if (p.attackActiveTimer <= 0) p.attacking = false;
+        }
+    }
+    if (p.specialAttacking) {
+        if (p.specialAttackStartup > 0) {
+            p.specialAttackStartup--;
+        } else if (p.specialAttackActiveTimer > 0) {
+            p.specialAttackActiveTimer--;
+            if (p.specialAttackActiveTimer <= 0) p.specialAttacking = false;
+        }
+    }
     if (p.attackCooldown > 0) p.attackCooldown--;
     if (p.specialAttackCooldown > 0) p.specialAttackCooldown--;
     if (p.dashTimer > 0) {
@@ -389,7 +403,9 @@ function getBounds(p) {
 function checkCombat() {
     const players = pm.getAllPlayers();
     for (const attacker of players) {
-        if (!attacker.attacking && !attacker.specialAttacking) continue;
+        const atkReady = attacker.attacking && attacker.attackStartup <= 0 && attacker.attackActiveTimer > 0;
+        const spAtkReady = attacker.specialAttacking && attacker.specialAttackStartup <= 0 && attacker.specialAttackActiveTimer > 0;
+        if (!atkReady && !spAtkReady) continue;
 
         const isSpecial = attacker.specialAttacking;
         const sDir = isSpecial ? attacker.specialAttackDir : attacker.attackDir;

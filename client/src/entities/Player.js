@@ -159,11 +159,9 @@ export default class Player {
 
     if (state.attacking && !this.attacking) {
       this.startAttack(state.attackDir || 'neutral');
-      this.attackStartTimer = 120;
     }
     if (state.specialAttacking && !this.specialAttacking) {
       this.startSpecialAttack(state.specialAttackDir || 'neutral');
-      this.attackStartTimer = 160;
     }
     this.specialAttackDir = state.specialAttackDir || 'neutral';
   }
@@ -173,11 +171,9 @@ export default class Player {
     if (vx !== undefined) this.lastVx = vx;
     if (attack && !this.attacking && !this.specialAttacking && this.attackCooldown <= 0) {
       this.startAttack(attackDir || 'neutral');
-      this.attackStartTimer = 120;
     }
     if (specialAttack && !this.specialAttacking && !this.attacking && this.specialAttackCooldown <= 0) {
       this.startSpecialAttack(specialDir || 'neutral');
-      this.attackStartTimer = 160;
     }
     this.shielding = shield;
     this.dashing = dashing || false;
@@ -200,7 +196,8 @@ export default class Player {
     this.attacking = true;
     this.attackDir = dir || 'neutral';
     const cfg = this.getAttackCfg(this.attackDir);
-    this.attackTimer = cfg.active * 50;
+    this.attackTimer = (cfg.startup + cfg.active) * 50;
+    this.attackStartTimer = cfg.startup * 50;
     this.attackCooldown = cfg.cd * 50;
     this.attackLungeX = this.facing === 'right' ? 7 : -7;
   }
@@ -209,7 +206,8 @@ export default class Player {
     this.specialAttacking = true;
     this.specialAttackDir = dir || 'neutral';
     const cfg = this.getSpecialCfg(this.specialAttackDir);
-    this.specialAttackTimer = cfg.active * 50;
+    this.specialAttackTimer = (cfg.startup + cfg.active) * 50;
+    this.attackStartTimer = cfg.startup * 50;
     this.specialAttackCooldown = cfg.cd * 50;
     this.attackLungeX = this.facing === 'right' ? 8 : -8;
   }
@@ -388,20 +386,21 @@ export default class Player {
       }
     }
 
-    // Attack / Special attack FX
+    // Attack / Special attack FX (delayed by startup)
     const col = this.playerColor || 0xffffff;
     const bright = Phaser.Display.Color.IntegerToColor(col);
     const color = { red: bright.red, green: bright.green, blue: bright.blue };
     const facing = this.facing === 'right' ? 1 : -1;
     const id = this.charConfig.id || 'sensei_waisas';
+    const showFX = this.attackStartTimer <= 0 && (this.specialAttacking || this.attacking);
 
-    if (this.specialAttacking) {
+    if (showFX && this.specialAttacking) {
       const dir = this.specialAttackDir || 'neutral';
       const cfg = this.getSpecialCfg(dir);
       this.attackGfx.clear();
       BEAM_FX(this.attackGfx, x, y, cfg, facing, color, dir);
       this.attackGfx.setVisible(true);
-    } else if (this.attacking) {
+    } else if (showFX && this.attacking) {
       const dir = this.attackDir || 'neutral';
       const cfg = this.getAttackCfg(dir);
       this.attackGfx.clear();

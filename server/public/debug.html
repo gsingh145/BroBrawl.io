@@ -237,14 +237,14 @@ function renderCharPanel(charId) {
   /* Attacks */
   panel.appendChild(makeCategory('Attacks'));
   const atkTable = document.createElement('table');
-  atkTable.innerHTML = '<thead><tr><th>Dir</th><th>Active</th><th>CD</th><th>Dmg</th><th>KB</th><th>W</th><th>H</th><th>Extras</th></tr></thead>';
+  atkTable.innerHTML = '<thead><tr><th>Dir</th><th>Startup</th><th>Active</th><th>CD</th><th>Dmg</th><th>KB</th><th>W</th><th>H</th><th>Extras</th></tr></thead>';
   const atkTbody = document.createElement('tbody');
   for (const dir of ['neutral', 'side', 'up', 'down']) {
     const a = ch.attacks?.[dir];
     if (!a) continue;
     const row = document.createElement('tr');
     row.innerHTML = `<td class="dir-label">${dir}</td>`;
-    for (const f of ['active', 'cd', 'dmg', 'kb', 'w', 'h']) {
+    for (const f of ['startup', 'active', 'cd', 'dmg', 'kb', 'w', 'h']) {
       const cell = document.createElement('td');
       cell.appendChild(makeCharRange(f, `${charId}.attacks.${dir}.${f}`, 0, 60, 1));
       row.appendChild(cell);
@@ -278,14 +278,14 @@ function renderCharPanel(charId) {
   /* Specials */
   panel.appendChild(makeCategory('Specials'));
   const spcTable = document.createElement('table');
-  spcTable.innerHTML = '<thead><tr><th>Dir</th><th>Active</th><th>CD</th><th>Dmg</th><th>KB</th><th>W</th><th>H</th><th>Extras</th></tr></thead>';
+  spcTable.innerHTML = '<thead><tr><th>Dir</th><th>Startup</th><th>Active</th><th>CD</th><th>Dmg</th><th>KB</th><th>W</th><th>H</th><th>Extras</th></tr></thead>';
   const spcTbody = document.createElement('tbody');
   for (const dir of ['neutral', 'side', 'up', 'down']) {
     const a = ch.specials?.[dir];
     if (!a) continue;
     const row = document.createElement('tr');
     row.innerHTML = `<td class="dir-label">${dir}</td>`;
-    for (const f of ['active', 'cd', 'dmg', 'kb', 'w', 'h']) {
+    for (const f of ['startup', 'active', 'cd', 'dmg', 'kb', 'w', 'h']) {
       const cell = document.createElement('td');
       cell.appendChild(makeCharRange(f, `${charId}.specials.${dir}.${f}`, 0, 60, 1));
       row.appendChild(cell);
@@ -328,6 +328,13 @@ function render() {
   sh.appendChild(makeSlider('Shield Base Reduction', 'SHIELD.baseReduction', 0, 1, 0.05));
   sh.appendChild(makeSlider('Shield Drain Rate', 'SHIELD.drainRate', 0, 5, 0.5));
   app.appendChild(sh);
+
+  const bz = document.createElement('div'); bz.className = 'sub';
+  bz.appendChild(makeSlider('Blast Zone Left', 'BLAST_ZONE_LEFT', -300, 0, 10));
+  bz.appendChild(makeSlider('Blast Zone Right', 'BLAST_ZONE_RIGHT', 800, 1200, 10));
+  bz.appendChild(makeSlider('Blast Zone Top', 'BLAST_ZONE_TOP', -300, 0, 10));
+  bz.appendChild(makeSlider('Blast Zone Bottom', 'BLAST_ZONE_BOTTOM', 500, 800, 10));
+  app.appendChild(bz);
 
   /* Characters */
   const charIds = Object.keys(charData);
