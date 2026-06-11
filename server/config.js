@@ -12,13 +12,12 @@ module.exports = {
   BLAST_ZONE_BOTTOM: 620,
 
   PLATFORMS: [
-    { left: 0, right: 800, surfaceY: 474 },
-    { left: 260, right: 440, surfaceY: 422 },
-    { left: 490, right: 610, surfaceY: 362 },
-    { left: 180, right: 320, surfaceY: 302 },
-    { left: 350, right: 450, surfaceY: 232 },
-    { left: 495, right: 605, surfaceY: 162 },
-    { left: 160, right: 240, surfaceY: 142 },
+    { left: 120, right: 700, surfaceY: 380 },
+    { left: 180, right: 320, surfaceY: 296 },
+    { left: 490, right: 610, surfaceY: 280 },
+    { left: 350, right: 450, surfaceY: 226 },
+    { left: 160, right: 280, surfaceY: 180 },
+    { left: 495, right: 605, surfaceY: 156 },
   ],
 
   SHIELD: { maxHealth: 100, baseReduction: 0.2, drainRate: 1 },

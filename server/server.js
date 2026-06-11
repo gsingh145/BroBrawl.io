@@ -219,9 +219,17 @@ function handleMessage(ws, raw) {
                 player.attackCooldown = cfg.cd;
                 if (cfg.lunge) {
                     player.vx = player.facing * cfg.lunge;
+                    player.attackLunge = player.facing * cfg.lunge;
                 }
                 if (cfg.spawnsProjectile) {
                     spawnProjectile(player, cfg);
+                }
+                // Up+attack in air gives extra jump (once per airtime)
+                if (dir === 'up' && !player.onGround && !player.usedAirAttackJump) {
+                    const jv = Math.min(getCharStats(player).jumpVelocity, C.MIN_JUMP_VELOCITY);
+                    player.vy = jv;
+                    player.canDoubleJump = true;
+                    player.usedAirAttackJump = true;
                 }
             }
             break;
@@ -363,6 +371,7 @@ function updatePlayer(p) {
             p.vy = 0;
             p.onGround = true;
             p.canDoubleJump = true;
+            p.usedAirAttackJump = false;
             break;
         }
     }
@@ -443,11 +452,9 @@ function checkCombat() {
             target.vx = dir * kb;
             target.vy = (-8 - target.damage * 0.2) * defStats.weight;
             if (target.shielding && target.shieldHealth > 0) {
-                const ratio = target.shieldHealth / C.SHIELD.maxHealth;
-                const mult = C.SHIELD.baseReduction + (1 - C.SHIELD.baseReduction) * (1 - ratio);
-                const absorbed = Math.floor(dmg * (1 - mult));
-                target.shieldHealth = Math.max(0, target.shieldHealth - absorbed);
-                target.damage += Math.floor(dmg * mult);
+                const absorbed = Math.min(dmg, target.shieldHealth);
+                target.shieldHealth -= absorbed;
+                // No damage goes through
             } else {
                 target.damage += dmg;
             }
